@@ -12,6 +12,11 @@ The server functions and server functions will be using python with FastAPI, Str
 
 The backend and hosting will be on my local server with PostgreSQL and Tailscale.
 
+## Server Backend
+
+Using Postgres-SQL and Redis in a Docker Compose Container on my local server (repurposed Framework Mainboard) to be accessed on my tailscale network
+
+
 ## Agent Disclosure
 
 Claude Code and Claude Chat will be used for planning, debugging, and improved implementation. See CLAUDE.md for more info.
