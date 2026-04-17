@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MTG App Architecture v2</title>
+  <link rel="stylesheet" href="./styles/mtg_app_architecture.css" />
+</head>
+
+<body>
+  <h1>MTG App — System Architecture v2 &nbsp;·&nbsp; TS Frontend · GraphQL · Python Backend</h1>
+  <svg width="100%" viewBox="0 0 680 800" role="img" xmlns="http://www.w3.org/2000/svg">
+    <title>MTG App System Architecture v2</title>
+    <desc>Architecture with TypeScript React frontend using Apollo Client, GraphQL API via Strawberry, FastAPI Python
+      backend, SQLAlchemy, and PostgreSQL</desc>
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6"
+        orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+      </marker>
+    </defs>
+
+    <!-- LAYER LABELS -->
+    <text class="ts" x="28" y="80" text-anchor="middle" dominant-baseline="central"
+      transform="rotate(-90,28,80)">Client</text>
+    <text class="ts" x="28" y="210" text-anchor="middle" dominant-baseline="central"
+      transform="rotate(-90,28,210)">API</text>
+    <text class="ts" x="28" y="380" text-anchor="middle" dominant-baseline="central"
+      transform="rotate(-90,28,380)">Services</text>
+    <text class="ts" x="28" y="540" text-anchor="middle" dominant-baseline="central"
+      transform="rotate(-90,28,540)">Database</text>
+    <text class="ts" x="28" y="680" text-anchor="middle" dominant-baseline="central"
+      transform="rotate(-90,28,680)">External</text>
+
+    <!-- ROW 1: FRONTEND -->
+    <g class="c-purple">
+      <rect x="50" y="30" width="610" height="100" rx="12" stroke-width="0.5" />
+      <text class="th" x="355" y="53" text-anchor="middle" dominant-baseline="central">Frontend — React +
+        TypeScript</text>
+    </g>
+    <g class="node c-purple">
+      <rect x="68" y="65" width="130" height="52" rx="6" stroke-width="0.5" />
+      <text class="th" x="133" y="84" text-anchor="middle" dominant-baseline="central">Converter</text>
+      <text class="ts" x="133" y="101" text-anchor="middle" dominant-baseline="central">CSV import/export</text>
+    </g>
+    <g class="node c-purple">
+      <rect x="212" y="65" width="130" height="52" rx="6" stroke-width="0.5" />
+      <text class="th" x="277" y="84" text-anchor="middle" dominant-baseline="central">Deck Builder</text>
+      <text class="ts" x="277" y="101" text-anchor="middle" dominant-baseline="central">Boards + legality</text>
+    </g>
+    <g class="node c-purple">
+      <rect x="356" y="65" width="130" height="52" rx="6" stroke-width="0.5" />
+      <text class="th" x="421" y="84" text-anchor="middle" dominant-baseline="central">Price Tracker</text>
+      <text class="ts" x="421" y="101" text-anchor="middle" dominant-baseline="central">Recharts trends</text>
+    </g>
+    <g class="node c-purple">
+      <rect x="500" y="65" width="142" height="52" rx="6" stroke-width="0.5" />
+      <text class="th" x="571" y="84" text-anchor="middle" dominant-baseline="central">EDHRec Panel</text>
+      <text class="ts" x="571" y="101" text-anchor="middle" dominant-baseline="central">Commander recs</text>
+    </g>
+
+    <!-- Arrow FE → API -->
+    <line x1="355" y1="130" x2="355" y2="152" class="arr" marker-end="url(#arrow)" />
+    <text class="ts" x="370" y="143" dominant-baseline="central">Apollo Client → GraphQL</text>
+
+    <!-- ROW 2: GRAPHQL API -->
+    <g class="c-teal">
+      <rect x="50" y="155" width="610" height="105" rx="12" stroke-width="0.5" />
+      <text class="th" x="355" y="177" text-anchor="middle" dominant-baseline="central">GraphQL API — Strawberry +
+        FastAPI</text>
+    </g>
+    <g class="node c-teal">
+      <rect x="68" y="190" width="110" height="57" rx="6" stroke-width="0.5" />
+      <text class="th" x="123" y="210" text-anchor="middle" dominant-baseline="central">CardQuery</text>
+      <text class="ts" x="123" y="227" text-anchor="middle" dominant-baseline="central">search, byId</text>
+      <text class="ts" x="123" y="240" text-anchor="middle" dominant-baseline="central">CardType</text>
+    </g>
+    <g class="node c-teal">
+      <rect x="190" y="190" width="120" height="57" rx="6" stroke-width="0.5" />
+      <text class="th" x="250" y="210" text-anchor="middle" dominant-baseline="central">CollectionMut</text>
+      <text class="ts" x="250" y="227" text-anchor="middle" dominant-baseline="central">add, remove</text>
+      <text class="ts" x="250" y="240" text-anchor="middle" dominant-baseline="central">CollectionType</text>
+    </g>
+    <g class="node c-teal">
+      <rect x="322" y="190" width="115" height="57" rx="6" stroke-width="0.5" />
+      <text class="th" x="379" y="210" text-anchor="middle" dominant-baseline="central">ConverterMut</text>
+      <text class="ts" x="379" y="227" text-anchor="middle" dominant-baseline="central">convertCSV</text>
+      <text class="ts" x="379" y="240" text-anchor="middle" dominant-baseline="central">CanonicalType</text>
+    </g>
+    <g class="node c-teal">
+      <rect x="449" y="190" width="95" height="57" rx="6" stroke-width="0.5" />
+      <text class="th" x="496" y="210" text-anchor="middle" dominant-baseline="central">DeckMut</text>
+      <text class="ts" x="496" y="227" text-anchor="middle" dominant-baseline="central">CRUD</text>
+      <text class="ts" x="496" y="240" text-anchor="middle" dominant-baseline="central">DeckType</text>
+    </g>
+    <g class="node c-teal">
+      <rect x="556" y="190" width="96" height="57" rx="6" stroke-width="0.5" />
+      <text class="th" x="604" y="210" text-anchor="middle" dominant-baseline="central">PriceQuery</text>
+      <text class="ts" x="604" y="227" text-anchor="middle" dominant-baseline="central">history</text>
+      <text class="ts" x="604" y="240" text-anchor="middle" dominant-baseline="central">PriceType</text>
+    </g>
+
+    <!-- Arrow API → Services -->
+    <line x1="355" y1="260" x2="355" y2="282" class="arr" marker-end="url(#arrow)" />
+
+    <!-- ROW 3: PYTHON SERVICES -->
+    <g class="c-amber">
+      <rect x="50" y="285" width="610" height="115" rx="12" stroke-width="0.5" />
+      <text class="th" x="355" y="308" text-anchor="middle" dominant-baseline="central">Python Services — FastAPI +
+        Celery</text>
+    </g>
+    <g class="node c-amber">
+      <rect x="68" y="320" width="155" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="145" y="341" text-anchor="middle" dominant-baseline="central">Scryfall Sync</text>
+      <text class="ts" x="145" y="358" text-anchor="middle" dominant-baseline="central">Bulk upsert → cards</text>
+      <text class="ts" x="145" y="373" text-anchor="middle" dominant-baseline="central">Daily @ 06:00 UTC</text>
+    </g>
+    <g class="node c-amber">
+      <rect x="239" y="320" width="155" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="316" y="341" text-anchor="middle" dominant-baseline="central">Format Converter</text>
+      <text class="ts" x="316" y="358" text-anchor="middle" dominant-baseline="central">csv + adapters</text>
+      <text class="ts" x="316" y="373" text-anchor="middle" dominant-baseline="central">scryfallId pivot</text>
+    </g>
+    <g class="node c-amber">
+      <rect x="410" y="320" width="155" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="487" y="341" text-anchor="middle" dominant-baseline="central">Price Snapshot</text>
+      <text class="ts" x="487" y="358" text-anchor="middle" dominant-baseline="central">collection × cards</text>
+      <text class="ts" x="487" y="373" text-anchor="middle" dominant-baseline="central">Daily @ 07:00 UTC</text>
+    </g>
+
+    <!-- Arrow Services → DB -->
+    <line x1="355" y1="400" x2="355" y2="422" class="arr" marker-end="url(#arrow)" />
+    <text class="ts" x="370" y="413" dominant-baseline="central">SQLAlchemy 2.0 (async)</text>
+
+    <!-- ROW 4: DATABASE -->
+    <g class="c-gray">
+      <rect x="50" y="425" width="610" height="115" rx="12" stroke-width="0.5" />
+      <text class="th" x="355" y="448" text-anchor="middle" dominant-baseline="central">PostgreSQL — SQLAlchemy
+        2.0</text>
+    </g>
+    <g class="node c-gray">
+      <rect x="66" y="460" width="100" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="116" y="480" text-anchor="middle" dominant-baseline="central">cards</text>
+      <text class="ts" x="116" y="497" text-anchor="middle" dominant-baseline="central">Scryfall cache</text>
+      <text class="ts" x="116" y="512" text-anchor="middle" dominant-baseline="central">~30k rows</text>
+    </g>
+    <g class="node c-gray">
+      <rect x="178" y="460" width="105" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="230" y="480" text-anchor="middle" dominant-baseline="central">collection</text>
+      <text class="ts" x="230" y="497" text-anchor="middle" dominant-baseline="central">Owned cards</text>
+      <text class="ts" x="230" y="512" text-anchor="middle" dominant-baseline="central">qty + condition</text>
+    </g>
+    <g class="node c-gray">
+      <rect x="295" y="460" width="110" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="350" y="480" text-anchor="middle" dominant-baseline="central">decks</text>
+      <text class="ts" x="350" y="497" text-anchor="middle" dominant-baseline="central">+ deck_cards</text>
+      <text class="ts" x="350" y="512" text-anchor="middle" dominant-baseline="central">boards + tags</text>
+    </g>
+    <g class="node c-gray">
+      <rect x="417" y="460" width="115" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="474" y="480" text-anchor="middle" dominant-baseline="central">price_history</text>
+      <text class="ts" x="474" y="497" text-anchor="middle" dominant-baseline="central">Daily snapshots</text>
+      <text class="ts" x="474" y="512" text-anchor="middle" dominant-baseline="central">cents (int)</text>
+    </g>
+    <g class="node c-gray">
+      <rect x="544" y="460" width="108" height="67" rx="6" stroke-width="0.5" />
+      <text class="th" x="598" y="480" text-anchor="middle" dominant-baseline="central">edhrec_cache</text>
+      <text class="ts" x="598" y="497" text-anchor="middle" dominant-baseline="central">Commander recs</text>
+      <text class="ts" x="598" y="512" text-anchor="middle" dominant-baseline="central">TTL 7 days</text>
+    </g>
+
+    <!-- Divider -->
+    <line x1="50" y1="570" x2="640" y2="570" stroke="rgba(0,0,0,0.12)" stroke-width="0.5" stroke-dasharray="4 4" />
+
+    <!-- ROW 5: EXTERNAL -->
+    <g class="node c-blue">
+      <rect x="50" y="585" width="160" height="67" rx="8" stroke-width="0.5" />
+      <text class="th" x="130" y="605" text-anchor="middle" dominant-baseline="central">Scryfall API</text>
+      <text class="ts" x="130" y="622" text-anchor="middle" dominant-baseline="central">Bulk data + prices</text>
+      <text class="ts" x="130" y="637" text-anchor="middle" dominant-baseline="central">httpx async</text>
+    </g>
+    <g class="node c-blue">
+      <rect x="224" y="585" width="150" height="67" rx="8" stroke-width="0.5" />
+      <text class="th" x="299" y="605" text-anchor="middle" dominant-baseline="central">EDHRec JSON</text>
+      <text class="ts" x="299" y="622" text-anchor="middle" dominant-baseline="central">Unofficial endpoint</text>
+      <text class="ts" x="299" y="637" text-anchor="middle" dominant-baseline="central">Cached, fragile</text>
+    </g>
+    <g class="node c-blue">
+      <rect x="388" y="585" width="130" height="67" rx="8" stroke-width="0.5" />
+      <text class="th" x="453" y="605" text-anchor="middle" dominant-baseline="central">Manabox CSV</text>
+      <text class="ts" x="453" y="622" text-anchor="middle" dominant-baseline="central">Import / export</text>
+      <text class="ts" x="453" y="637" text-anchor="middle" dominant-baseline="central">scryfallId pivot</text>
+    </g>
+    <g class="node c-blue">
+      <rect x="532" y="585" width="118" height="67" rx="8" stroke-width="0.5" />
+      <text class="th" x="591" y="600" text-anchor="middle" dominant-baseline="central">Moxfield /</text>
+      <text class="th" x="591" y="618" text-anchor="middle" dominant-baseline="central">Archidekt</text>
+      <text class="ts" x="591" y="637" text-anchor="middle" dominant-baseline="central">CSV in/out</text>
+    </g>
+
+    <!-- Arrows: External → Services -->
+    <line x1="130" y1="585" x2="145" y2="402" stroke="#378ADD" stroke-width="1.5" fill="none"
+      marker-end="url(#arrow)" />
+    <line x1="299" y1="585" x2="570" y2="402" stroke="#378ADD" stroke-width="1.5" fill="none"
+      marker-end="url(#arrow)" />
+    <line x1="420" y1="585" x2="260" y2="402" stroke="#378ADD" stroke-width="1.5" fill="none"
+      marker-end="url(#arrow)" />
+
+    <!-- Legend -->
+    <line x1="52" y1="692" x2="76" y2="692" stroke="#378ADD" stroke-width="1.5" fill="none" marker-end="url(#arrow)" />
+    <text class="ts" x="82" y="692" dominant-baseline="central">External data flow</text>
+    <line x1="220" y1="692" x2="244" y2="692" class="arr" marker-end="url(#arrow)" />
+    <text class="ts" x="250" y="692" dominant-baseline="central">Internal data flow</text>
+    <text class="ts" x="52" y="712" dominant-baseline="central">TS Frontend · GraphQL · Python Backend ·
+      PostgreSQL</text>
+  </svg>
+</body>
+
+</html>
