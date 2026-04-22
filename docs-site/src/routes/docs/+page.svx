@@ -1,0 +1,7 @@
+# Hello from mdsvex
+
+This is **markdown** being rendered inside SvelteKit.
+
+- Code blocks work
+- Lists work
+- `inline code` works
