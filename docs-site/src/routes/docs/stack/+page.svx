@@ -1,0 +1,43 @@
+# Tech Stack and Reference Guide
+
+## Docs (This Site)
+
+- [SvelteKit](https://kit.svelte.dev/docs) — App framework
+- [Wrangler](https://developers.cloudflare.com/workers/wrangler/) — Cloudflare CLI and dev server
+- [Cloudflare Pages](https://developers.cloudflare.com/pages/) — Hosting and deployment
+
+## Front End
+
+- [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/docs/) — UI framework
+- [Vite](https://vitejs.dev/guide/) — Build tool and dev server
+- [Apollo Client](https://www.apollographql.com/docs/react/) — GraphQL client
+- [shadcn/ui](https://ui.shadcn.com/docs/installation) + [Tailwind CSS](https://tailwindcss.com/docs/) — Styling
+- [Recharts](https://recharts.github.io/) — Price charts
+- [GraphQL](https://graphql.org/learn/) with codegen — Data requests and subscriptions
+
+## API
+
+- [Python](https://docs.python.org/3/) — Backend language
+- [FastAPI](https://fastapi.tiangolo.com/) — HTTP framework
+- [Strawberry](https://strawberry.rocks/docs) — GraphQL schema and resolvers
+- [Better Auth](https://www.better-auth.com/docs/introduction) — Authentication (JWT)
+
+## Infrastructure
+
+- [Docker Compose](https://docs.docker.com/compose/) — Container orchestration
+- [Redis](https://redis.io/docs/) — Celery broker and result backend
+- [Celery](https://docs.celeryq.dev/en/stable/) — Task queue and cron scheduling
+- [PostgreSQL](https://www.postgresql.org/docs/) — Relational database
+- [SQLAlchemy](https://docs.sqlalchemy.org/en/20/) — Python ORM and async driver
+- [Alembic](https://alembic.sqlalchemy.org/en/latest/) — Database migrations
+
+## External APIs
+
+- [Scryfall API](https://scryfall.com/docs/api) — Card data and pricing
+
+## Testing and QA
+
+- [ESLint](https://eslint.org/docs/latest/) — JavaScript/TypeScript linting
+- [Prettier](https://prettier.io/docs/en/index.html) — Code formatting
+- [pytest](https://docs.pytest.org/en/stable/) — Python test framework
+- [Playwright](https://playwright.dev/docs/intro) — End-to-end browser testing
