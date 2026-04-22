@@ -1,6 +1,21 @@
 **/node_modules
 .DS_Store
 
+# Secrets and local environment
+backend/.env
+.env
+.env.local
+.env.production
+.env.*.local
+*.pem
+*.key
+
+# Python
+**/__pycache__
+**/*.pyc
+backend/.venv
+backend/.mypy_cache
+
 # Playwright
 /test-results/
 /playwright-report/
