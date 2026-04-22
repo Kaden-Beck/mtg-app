@@ -1,9 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 
 	let visible = false;
 	onMount(() => {
 		visible = true;
+		document.body.classList.add('arch-dark');
+	});
+	onDestroy(() => {
+		document.body.classList.remove('arch-dark');
 	});
 
 	const stack = [
@@ -361,7 +365,7 @@
 </div>
 
 <style>
-	:global(body) {
+	:global(body.arch-dark) {
 		margin: 0;
 		background: #0f0f0f;
 	}

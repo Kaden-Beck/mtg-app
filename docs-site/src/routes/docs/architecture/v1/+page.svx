@@ -1,9 +1,0 @@
----
-title: Architecture
----
-
-<script>
-  import ArchitectureRef from '$lib/components/Architecturev1.svelte';
-</script>
-
-<ArchitectureRef />

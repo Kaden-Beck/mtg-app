@@ -43,6 +43,21 @@ celery -A celery_worker worker --loglevel=info
 celery -A celery_worker beat --loglevel=info
 ```
 
+### Docs Site (`docs-site/`)
+
+```bash
+pnpm dev             # Start Vite dev server
+pnpm build           # Production build — outputs to .svelte-kit/cloudflare/
+pnpm preview         # Preview production build locally
+pnpm check           # svelte-check type checking
+```
+
+**Use `pnpm`, not `npm`** — the project has a `pnpm-lock.yaml` and `npm` commands will fail with peer dependency errors.
+
+Deployed to **Cloudflare Pages** via `wrangler.jsonc` (`pages_build_output_dir: .svelte-kit/cloudflare`). The adapter is `@sveltejs/adapter-cloudflare`. Pages config lives in `wrangler.jsonc` — do not convert it back to Workers (`main` + `assets`) format.
+
+Pages use `.svx` extension (mdsvex). Routes live in `src/routes/` as `+page.svx` or `+page.svelte`. The `extensions` array in `svelte.config.js` must include `.svx` for SvelteKit to pick up `.svx` route files.
+
 ### Infrastructure
 
 ```bash

@@ -1,0 +1,5 @@
+<script>
+	import Architecturev1 from '$lib/components/Architecturev1.svelte';
+</script>
+
+<Architecturev1 />

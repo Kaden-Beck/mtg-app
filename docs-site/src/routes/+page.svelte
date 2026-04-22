@@ -4,7 +4,7 @@
 		Build logs and architecture docs for a self-hosted MTG collection manager.
 	</p>
 	<ul class="space-y-3">
-		<li><a href="/build-guide.html" class="text-blue-600 hover:underline">Build guide →</a></li>
+		<li><a href="/docs/build-guide/v2" class="text-blue-600 hover:underline">Build guide →</a></li>
 		<li><a href="/docs/architecture" class="text-blue-600 hover:underline">Architecture →</a></li>
 	</ul>
 </div>
