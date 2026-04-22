@@ -2,4 +2,9 @@
 	import Architecturev1 from '$lib/components/Architecturev1.svelte';
 </script>
 
+<svelte:head>
+  <title>Architecture Overview</title>
+</svelte:head>
+
+
 <Architecturev1 />

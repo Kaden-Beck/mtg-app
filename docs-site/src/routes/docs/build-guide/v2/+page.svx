@@ -1,3 +1,7 @@
+<svelte:head>
+  <title>App Build Overview</title>
+</svelte:head>
+
 ---
 title: Build Guide v2
 ---

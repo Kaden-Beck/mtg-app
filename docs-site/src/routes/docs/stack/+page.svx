@@ -1,3 +1,8 @@
+<svelte:head>
+  <title>Tech Stack and Reference Guides</title>
+</svelte:head>
+
+
 # Tech Stack and Reference Guide
 
 ## Docs (This Site)

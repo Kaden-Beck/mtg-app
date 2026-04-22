@@ -1,3 +1,10 @@
+<svelte:head>
+  <title>Journal Entry</title>
+</svelte:head>
+
+
+
+
 # Placeholder for Dev Journal entries
 
 - Entry: 
