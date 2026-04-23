@@ -15,5 +15,6 @@
       "database": "mtg",
       "username": "mtg"
     }
-  ]
+  ],
+  "python.REPL.enableREPLSmartSend": false
 }
