@@ -30,6 +30,8 @@ def _to_card_type(c: Card) -> CardType:
         price_usd=c.price_usd,
         price_usd_foil=c.price_usd_foil,
         price_eur=c.price_eur,
+        image_uris=c.image_uris,  # type: ignore[arg-type]
+        legalities=c.legalities,  # type: ignore[arg-type]
     )
 
 

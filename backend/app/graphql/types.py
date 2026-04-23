@@ -1,4 +1,5 @@
 import strawberry
+from strawberry.scalars import JSON
 from typing import Optional
 from datetime import datetime
 
@@ -19,6 +20,8 @@ class CardType:
     price_usd: Optional[int]  # cents
     price_usd_foil: Optional[int]  # cents
     price_eur: Optional[int]  # cents
+    image_uris: Optional[JSON]
+    legalities: Optional[JSON]
 
 
 @strawberry.type

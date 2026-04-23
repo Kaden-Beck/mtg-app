@@ -1,0 +1,26 @@
+query SearchCards($query: String!, $limit: Int) {
+  searchCards(query: $query, limit: $limit) {
+    id
+    name
+    setCode
+    setName
+    manaCost
+    cmc
+    typeLine
+    colorIdentity
+    rarity
+    priceUsd
+    priceUsdFoil
+    imageUris
+  }
+}
+
+query CardById($id: String!) {
+  cardById(id: $id) {
+    id
+    name
+    oracleText
+    legalities
+    imageUris
+  }
+}
