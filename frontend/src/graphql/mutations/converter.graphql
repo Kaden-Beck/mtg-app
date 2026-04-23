@@ -1,0 +1,10 @@
+mutation ConvertCsv(
+    $csv: String!, 
+    $fromFormat: CollectionFormat!,
+    $toFormat: CollectionFormat!
+) {
+  convertCsv(csv: $csv, fromFormat: $fromFormat, toFormat: $toFormat) {
+    csv
+    count
+  }
+}

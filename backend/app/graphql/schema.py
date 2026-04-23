@@ -9,16 +9,12 @@ from app.graphql.resolvers.prices import PricesQuery
 
 @strawberry.type
 class Query(CardsQuery, CollectionQuery, DecksQuery, PricesQuery):
-    @strawberry.field
-    def ping(self) -> str:
-        return "pong"
+    pass
 
 
 @strawberry.type
 class Mutation(CollectionMutation, ConverterMutation, DecksMutation):
-    @strawberry.field
-    def ping(self) -> str:
-        return "pong"
+    pass
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

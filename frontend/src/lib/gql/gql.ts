@@ -14,9 +14,11 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+    "mutation ConvertCsv($csv: String!, $fromFormat: CollectionFormat!, $toFormat: CollectionFormat!) {\n  convertCsv(csv: $csv, fromFormat: $fromFormat, toFormat: $toFormat) {\n    csv\n    count\n  }\n}": typeof types.ConvertCsvDocument,
     "query SearchCards($query: String!, $limit: Int) {\n  searchCards(query: $query, limit: $limit) {\n    id\n    name\n    setCode\n    setName\n    manaCost\n    cmc\n    typeLine\n    colorIdentity\n    rarity\n    priceUsd\n    priceUsdFoil\n    imageUris\n  }\n}\n\nquery CardById($id: String!) {\n  cardById(id: $id) {\n    id\n    name\n    oracleText\n    legalities\n    imageUris\n  }\n}": typeof types.SearchCardsDocument,
 };
 const documents: Documents = {
+    "mutation ConvertCsv($csv: String!, $fromFormat: CollectionFormat!, $toFormat: CollectionFormat!) {\n  convertCsv(csv: $csv, fromFormat: $fromFormat, toFormat: $toFormat) {\n    csv\n    count\n  }\n}": types.ConvertCsvDocument,
     "query SearchCards($query: String!, $limit: Int) {\n  searchCards(query: $query, limit: $limit) {\n    id\n    name\n    setCode\n    setName\n    manaCost\n    cmc\n    typeLine\n    colorIdentity\n    rarity\n    priceUsd\n    priceUsdFoil\n    imageUris\n  }\n}\n\nquery CardById($id: String!) {\n  cardById(id: $id) {\n    id\n    name\n    oracleText\n    legalities\n    imageUris\n  }\n}": types.SearchCardsDocument,
 };
 
@@ -34,6 +36,10 @@ const documents: Documents = {
  */
 export function gql(source: string): unknown;
 
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "mutation ConvertCsv($csv: String!, $fromFormat: CollectionFormat!, $toFormat: CollectionFormat!) {\n  convertCsv(csv: $csv, fromFormat: $fromFormat, toFormat: $toFormat) {\n    csv\n    count\n  }\n}"): (typeof documents)["mutation ConvertCsv($csv: String!, $fromFormat: CollectionFormat!, $toFormat: CollectionFormat!) {\n  convertCsv(csv: $csv, fromFormat: $fromFormat, toFormat: $toFormat) {\n    csv\n    count\n  }\n}"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

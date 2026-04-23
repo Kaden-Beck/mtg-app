@@ -22,11 +22,11 @@ class CanonicalCard:
 
 
 MANABOX_TO_CANONICAL: dict[str, CardCondition] = {
-    "Near Mint": "NM",
-    "Lightly Played": "LP",
-    "Moderately Played": "MP",
-    "Heavily Played": "HP",
-    "Damaged": "DMG",
+    "near_mint": "NM",
+    "lightly_played": "LP",
+    "moderately_played": "MP",
+    "heavily_played": "HP",
+    "damaged": "DMG",
 }
 CANONICAL_TO_MANABOX = {v: k for k, v in MANABOX_TO_CANONICAL.items()}
 
@@ -35,16 +35,16 @@ def from_manabox(csv_text: str) -> list[CanonicalCard]:
     reader = csv.DictReader(io.StringIO(csv_text))
     cards = []
     for row in reader:
+        raw_condition = row.get("Condition", "").lower().replace(" ", "_")
+        raw_price = row.get("Purchase price") or row.get("Purchase Price")
         cards.append(
             CanonicalCard(
                 scryfall_id=row["Scryfall ID"],
                 quantity=int(row.get("Quantity", 1) or 1),
                 foil=row.get("Foil", "").lower() == "foil",
-                condition=MANABOX_TO_CANONICAL.get(row.get("Condition", ""), "NM"),
+                condition=MANABOX_TO_CANONICAL.get(raw_condition, "NM"),
                 language=row.get("Language", "en") or "en",
-                purchase_price=float(row["Purchase Price"])
-                if row.get("Purchase Price")
-                else None,
+                purchase_price=float(raw_price) if raw_price else None,
             )
         )
     return cards
