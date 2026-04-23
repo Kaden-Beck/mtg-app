@@ -1,5 +1,15 @@
-<svelte:head>
-  <title>ERD Chart</title>
-</svelte:head>
+---
+title: Database Schema
+---
 
-# ERD
+<script>
+  import { Mermaid } from '@friendofsvelte/mermaid';
+  import { ERD_DIAGRAM } from '$lib/erd';
+</script>
+
+# Database Schema
+
+Auto-generated from the SQLAlchemy models in `backend/app/models/models.py`.
+Regenerate by running `python backend/scripts/generate_erd.py`.
+
+<Mermaid string={ERD_DIAGRAM} />

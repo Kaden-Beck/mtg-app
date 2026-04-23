@@ -1,0 +1,8 @@
+# Thursday, April 23, 2026 
+
+## Action Log
+
+- Created this website with Svelte Kit
+- Hosted site on CloudFlare Pages (avoiding using Vercel only)
+
+- Worked on the migrations tools for the database and the seed function for Scryfall

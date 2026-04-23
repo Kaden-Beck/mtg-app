@@ -37,5 +37,8 @@
 		"typescript-eslint": "^8.58.1",
 		"vite": "^8.0.7",
 		"wrangler": "^4.84.1"
+	},
+	"dependencies": {
+		"@friendofsvelte/mermaid": "^0.0.4"
 	}
 }

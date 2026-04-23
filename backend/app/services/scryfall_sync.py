@@ -2,9 +2,10 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.models.models import Card
-import asyncio
+# import asyncio
 
 BULK_META_URL = "https://api.scryfall.com/bulk-data/default-cards"
+
 
 def _price_cents(val: str | None) -> int | None:
     if val is None:
@@ -13,6 +14,7 @@ def _price_cents(val: str | None) -> int | None:
         return round(float(val) * 100)
     except (ValueError, TypeError):
         return None
+
 
 async def sync_scryfall_bulk(db: AsyncSession) -> int:
     async with httpx.AsyncClient(timeout=300) as client:
