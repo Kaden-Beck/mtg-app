@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Boolean, Text, DateTime, ForeignKey, ARRAY, func
+from sqlalchemy import String, Integer, Boolean, Text, DateTime, Date, ForeignKey, ARRAY, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
@@ -37,7 +37,7 @@ class CollectionItem(Base):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
     scryfall_id: Mapped[str] = mapped_column(
-        String, ForeignKey("cards.id"), nullable=False, index=True
+        String, ForeignKey("cards.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     foil: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -60,7 +60,7 @@ class Deck(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     format: Mapped[str] = mapped_column(String, default="commander")
     description: Mapped[str | None] = mapped_column(Text)
-    commander_id: Mapped[str | None] = mapped_column(String, ForeignKey("cards.id"))
+    commander_id: Mapped[str | None] = mapped_column(String, ForeignKey("cards.id", ondelete="SET NULL"))
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -82,7 +82,7 @@ class DeckCard(Base):
         String, ForeignKey("decks.id", ondelete="CASCADE"), nullable=False, index=True
     )
     scryfall_id: Mapped[str] = mapped_column(
-        String, ForeignKey("cards.id"), nullable=False
+        String, ForeignKey("cards.id", ondelete="RESTRICT"), nullable=False
     )
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     board: Mapped[str] = mapped_column(String, default="mainboard")
@@ -99,12 +99,12 @@ class PriceHistory(Base):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
     scryfall_id: Mapped[str] = mapped_column(
-        String, ForeignKey("cards.id"), nullable=False, index=True
+        String, ForeignKey("cards.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     price_usd: Mapped[int | None] = mapped_column(Integer)
     price_usd_foil: Mapped[int | None] = mapped_column(Integer)
     price_eur: Mapped[int | None] = mapped_column(Integer)
-    snapshot_date: Mapped[str] = mapped_column(String, nullable=False)  # YYYY-MM-DD
+    snapshot_date: Mapped[Date] = mapped_column(Date, nullable=False)
     recorded_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
