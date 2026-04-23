@@ -5,3 +5,4 @@
 - Improved VS Code setup to better handle SSH into my server. 
 - Added an ERD to this website as a Mermaid Chart thanks to [`@friendofsvelte/mermaid`](https://github.com/friendofsvelte/mermaid)
 - Set up celery workers to automate scryfall sync, will implement the price history functionality later
+- Set up basic codegen to infer types from Strawberry
