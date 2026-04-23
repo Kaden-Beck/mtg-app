@@ -1,3 +1,4 @@
+from datetime import datetime, date
 from sqlalchemy import String, Integer, Boolean, Text, DateTime, Date, ForeignKey, ARRAY, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -25,7 +26,7 @@ class Card(Base):
     image_uris: Mapped[dict | None] = mapped_column(JSONB)
     legalities: Mapped[dict | None] = mapped_column(JSONB)
     scryfall_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
@@ -44,7 +45,7 @@ class CollectionItem(Base):
     condition: Mapped[str] = mapped_column(String, default="NM")
     language: Mapped[str] = mapped_column(String, default="en")
     purchase_price_cents: Mapped[int | None] = mapped_column(Integer)
-    acquired_at: Mapped[DateTime] = mapped_column(
+    acquired_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     notes: Mapped[str | None] = mapped_column(Text)
@@ -61,10 +62,10 @@ class Deck(Base):
     format: Mapped[str] = mapped_column(String, default="commander")
     description: Mapped[str | None] = mapped_column(Text)
     commander_id: Mapped[str | None] = mapped_column(String, ForeignKey("cards.id", ondelete="SET NULL"))
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     deck_cards: Mapped[list["DeckCard"]] = relationship(
@@ -104,8 +105,8 @@ class PriceHistory(Base):
     price_usd: Mapped[int | None] = mapped_column(Integer)
     price_usd_foil: Mapped[int | None] = mapped_column(Integer)
     price_eur: Mapped[int | None] = mapped_column(Integer)
-    snapshot_date: Mapped[Date] = mapped_column(Date, nullable=False)
-    recorded_at: Mapped[DateTime] = mapped_column(
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
@@ -118,9 +119,9 @@ class EdhrecCache(Base):
     )
     slug: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    expires_at: Mapped[DateTime] = mapped_column(
+    expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
