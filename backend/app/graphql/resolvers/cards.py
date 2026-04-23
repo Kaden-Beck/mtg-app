@@ -1,0 +1,2 @@
+class CardsQuery:
+    pass
