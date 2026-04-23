@@ -16,6 +16,28 @@ def _price_cents(val: str | None) -> int | None:
         return None
 
 
+def _card_to_row(c: dict) -> dict:
+    return {
+        "id": c["id"],
+        "name": c["name"],
+        "set_code": c["set"],
+        "set_name": c["set_name"],
+        "collector_number": c["collector_number"],
+        "mana_cost": c.get("mana_cost"),
+        "cmc": round(c.get("cmc") or 0),
+        "type_line": c.get("type_line", ""),
+        "oracle_text": c.get("oracle_text"),
+        "color_identity": c.get("color_identity", []),
+        "rarity": c["rarity"],
+        "price_usd": _price_cents(c.get("prices", {}).get("usd")),
+        "price_usd_foil": _price_cents(c.get("prices", {}).get("usd_foil")),
+        "price_eur": _price_cents(c.get("prices", {}).get("eur")),
+        "image_uris": c.get("image_uris"),
+        "legalities": c.get("legalities"),
+        "scryfall_data": c,
+    }
+
+
 async def sync_scryfall_bulk(db: AsyncSession) -> int:
     async with httpx.AsyncClient(timeout=300) as client:
         meta = (await client.get(BULK_META_URL)).json()
@@ -29,28 +51,7 @@ async def sync_scryfall_bulk(db: AsyncSession) -> int:
     BATCH = 500
     for i in range(0, len(card_array), BATCH):
         batch = card_array[i : i + BATCH]
-        values = [
-            {
-                "id": c["id"],
-                "name": c["name"],
-                "set_code": c["set"],
-                "set_name": c["set_name"],
-                "collector_number": c["collector_number"],
-                "mana_cost": c.get("mana_cost"),
-                "cmc": round(c.get("cmc") or 0),
-                "type_line": c.get("type_line", ""),
-                "oracle_text": c.get("oracle_text"),
-                "color_identity": c.get("color_identity", []),
-                "rarity": c["rarity"],
-                "price_usd": _price_cents(c.get("prices", {}).get("usd")),
-                "price_usd_foil": _price_cents(c.get("prices", {}).get("usd_foil")),
-                "price_eur": _price_cents(c.get("prices", {}).get("eur")),
-                "image_uris": c.get("image_uris"),
-                "legalities": c.get("legalities"),
-                "scryfall_data": c,
-            }
-            for c in batch
-        ]
+        values = [_card_to_row(c) for c in batch]
         stmt = pg_insert(Card).values(values)
         stmt = stmt.on_conflict_do_update(
             index_elements=["id"],
