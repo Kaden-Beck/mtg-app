@@ -1,0 +1,37 @@
+query GetCollection {
+  collection {
+    id
+    scryfallId
+    quantity
+    foil
+    condition
+    language
+    purchasePriceCents
+    card {
+      id
+      name
+      setName
+      priceUsd
+      priceUsdFoil
+      imageUris
+    }
+  }
+}
+
+mutation AddToCollection(
+  $scryfallId: String!
+  $quantity: Int
+  $foil: Boolean
+  $condition: String
+) {
+  addToCollection(
+    scryfallId: $scryfallId
+    quantity: $quantity
+    foil: $foil
+    condition: $condition
+  ) {
+    id
+    scryfallId
+    quantity
+  }
+}
