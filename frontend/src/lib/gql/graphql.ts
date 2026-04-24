@@ -65,10 +65,45 @@ export type ConversionResultType = {
   csv: Scalars['String']['output'];
 };
 
+export type DeckCardType = {
+  __typename?: 'DeckCardType';
+  board: Scalars['String']['output'];
+  card?: Maybe<CardType>;
+  categories: Array<Scalars['String']['output']>;
+  deckId: Scalars['String']['output'];
+  foil: Scalars['Boolean']['output'];
+  id: Scalars['String']['output'];
+  quantity: Scalars['Int']['output'];
+  scryfallId: Scalars['String']['output'];
+};
+
+export type DeckType = {
+  __typename?: 'DeckType';
+  commanderId?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  deckCards: Array<DeckCardType>;
+  description?: Maybe<Scalars['String']['output']>;
+  format: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
+  addCardToDeck: DeckCardType;
   addToCollection: CollectionItemType;
   convertCsv: ConversionResultType;
+  createDeck: DeckType;
+};
+
+
+export type MutationAddCardToDeckArgs = {
+  board?: Scalars['String']['input'];
+  categories?: Array<Scalars['String']['input']>;
+  deckId: Scalars['String']['input'];
+  quantity?: Scalars['Int']['input'];
+  scryfallId: Scalars['String']['input'];
 };
 
 
@@ -88,15 +123,29 @@ export type MutationConvertCsvArgs = {
   toFormat: CollectionFormat;
 };
 
+
+export type MutationCreateDeckArgs = {
+  commanderId?: InputMaybe<Scalars['String']['input']>;
+  format?: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
   cardById?: Maybe<CardType>;
   collection: Array<CollectionItemType>;
+  deck?: Maybe<DeckType>;
+  decks: Array<DeckType>;
   searchCards: Array<CardType>;
 };
 
 
 export type QueryCardByIdArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryDeckArgs = {
   id: Scalars['String']['input'];
 };
 
