@@ -1,0 +1,87 @@
+# 00 — Prerequisites
+
+Three blockers must be cleared before any test work begins. None take long; all will derail Phase A if skipped.
+
+## Goal
+
+Get the backend booting cleanly, on the right `pytest-asyncio` version, with a corrected schema target for the UNIQUE constraint that lands in Phase E.
+
+## The three blockers
+
+### 1. Fix the missing `prices.py` resolver
+
+`backend/app/graphql/schema.py` line 7 imports `PricesQuery` from a file that doesn't exist. The FastAPI app currently fails at startup with `ImportError`. Either create a stub or drop the import.
+
+**Recommended: create the stub.** The Alembic migration for `price_history` already exists, so this is half-finished work that Phase 14 will complete.
+
+```python
+# backend/app/graphql/resolvers/prices.py
+import strawberry
+from strawberry.types import Info
+
+@strawberry.type
+class PricesQuery:
+    @strawberry.field
+    async def price_history_placeholder(self, info: Info) -> str:
+        """Stub. Replaced in Lesson 14."""
+        return "price_history not yet implemented"
+```
+
+**Steps:**
+- [ ] Create `backend/app/graphql/resolvers/prices.py` with the stub above
+- [ ] Run `uvicorn app.main:app --reload` — confirm `/graphql` loads in the browser
+- [ ] Open GraphiQL and run `{ pricePlaceholder: pricePlaceholder }` — should return the placeholder string
+- [ ] Commit: `fix: add prices resolver stub to unbreak app startup`
+
+### 2. Upgrade `pytest-asyncio` to ≥ 1.0
+
+The conftest in Phase A uses `loop_scope="session"` as a keyword argument and sets `asyncio_default_fixture_loop_scope` in `pyproject.toml`. **Both APIs are 1.0+ only.** Running the conftest as written against the pinned `0.23.6` will fail immediately with a `TypeError` on the fixture decorator.
+
+**Steps:**
+- [ ] Edit `backend/requirements.txt`: change `pytest-asyncio==0.23.6` → `pytest-asyncio>=1.0,<2.0`
+- [ ] `pip install -r requirements.txt` in the venv
+- [ ] Run the existing test suite: `pytest backend/tests/` — confirm `test_converter.py` and `test_scryfall_sync.py` still pass
+- [ ] Commit: `chore: upgrade pytest-asyncio to 1.x for loop_scope kwarg support`
+
+### 3. Drop `user_id` from the planned UNIQUE constraint
+
+Phase E adds a composite UNIQUE on `CollectionItem`. The original plan included `user_id` in that constraint. **This is a single-user personal app. There is no user table, no auth, no `user_id` column.** Adding one would require a separate migration and is out of scope.
+
+The corrected target constraint for Phase E is:
+
+```python
+UniqueConstraint(
+    "scryfall_id", "foil", "condition", "language",
+    name="uq_collection_variant",
+)
+```
+
+No code change needed in this phase — just write this down so Phase E doesn't introduce a column that doesn't belong.
+
+**Steps:**
+- [ ] Note the corrected constraint target above; add to your CLAUDE.md or planning doc
+
+## Notes on existing test suite
+
+The plan was written as if no tests exist. They do:
+
+- `backend/tests/test_converter.py` — covers `from_manabox`, `from_archidekt`, `to_moxfield`, `to_archidekt`, `convert()` round-trip
+- `backend/tests/test_scryfall_sync.py` — covers `_price_cents`, `_card_to_row`, the HTTP fetch in `sync_scryfall_bulk`, the Celery task wiring; uses mocked httpx and `AsyncMock` DB session
+
+**Implications for the phases:**
+
+- Phase B is partially done — converter coverage is real. Add the new edge cases (banker's rounding, `cmc=0.5`, BOM CSV) on top, don't rewrite.
+- `test_scryfall_sync.py` asserts `mock_db.commit.call_count == 2` for 501 cards — i.e. it documents the buggy per-batch commit behavior. **When Phase C moves to single-outer-commit, this test must be updated, not left untouched.**
+
+## Lock-in commit
+
+After all three blockers are cleared, the working tree should have:
+
+- `backend/app/graphql/resolvers/prices.py` (new, stub)
+- `backend/requirements.txt` (pytest-asyncio bumped)
+- App boots cleanly via `uvicorn`
+- Existing tests still green
+
+Commit message: `chore: prerequisites cleared for hardening pass`
+
+Move to [Phase A](../part-2).

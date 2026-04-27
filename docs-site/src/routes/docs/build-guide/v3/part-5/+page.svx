@@ -1,0 +1,286 @@
+# 04 — Phase D: Resolver & GraphQL Tests
+
+The foundation is solid; now exercise the GraphQL layer. Most resolver tests go through `schema.execute()` directly. Typed-error Unions get introduced here. N+1 guards get added.
+
+**Effort:** 2–3 days.
+
+## Goal
+
+Every resolver has happy-path, not-found, validation-error, and conflict tests. Mutations return typed Union results. Every list-returning resolver has an `assert_max_queries` guard locking in N+1-free behavior.
+
+## Key context
+
+- **`schema.execute(query, variable_values=…, context_value={"db": session})`** is the primary entry. Faster than ASGI, gives direct access to `ExecutionResult.data`/`.errors`, lets you inject the test session in one line.
+- **`httpx.AsyncClient`** is for ~20% of tests that exercise `GraphQLRouter`, `context_getter`, FastAPI dependency overrides, custom JSON, or auth.
+- **Typed-error Unions** for expected business errors. Top-level `errors` array stays for system errors only.
+- The deprecated `strawberry.union("Name", types=[…])` constructor is on the way out. Use the `Annotated` form.
+
+## Step 1: The N+1 guard fixture
+
+```python
+# backend/tests/conftest.py — extend
+import contextlib
+import re
+from sqlalchemy import event
+
+@pytest.fixture
+def assert_max_queries(engine):
+    @contextlib.contextmanager
+    def _inner(n: int):
+        statements = []
+        def _hook(conn, cursor, statement, *_):
+            if not re.match(
+                r"\s*(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)",
+                statement, re.I,
+            ):
+                statements.append(statement)
+        event.listen(engine.sync_engine, "before_cursor_execute", _hook)
+        try:
+            yield statements
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", _hook)
+            assert len(statements) <= n, (
+                f"expected ≤{n}, got {len(statements)}:\n  - " +
+                "\n  - ".join(statements)
+            )
+    return _inner
+```
+
+- [ ] Add the fixture to conftest
+
+## Step 2: Schema test helper
+
+Subclass the schema during tests so unhandled errors give real tracebacks:
+
+```python
+# backend/tests/_schema_test_util.py
+import strawberry
+from app.graphql.schema import schema as _real_schema
+
+class TestSchema(strawberry.Schema):
+    def process_errors(self, errors, execution_context=None):
+        super().process_errors(errors, execution_context)
+        for err in errors:
+            if err.original_error:
+                raise err.original_error
+
+# Reuse the same Query/Mutation classes
+test_schema = TestSchema(
+    query=_real_schema.query_type,
+    mutation=_real_schema.mutation_type,
+)
+```
+
+- [ ] Create `_schema_test_util.py`
+- [ ] Use `test_schema` in tests where you want pytest-grade error visibility
+
+## Step 3: Cards resolver tests
+
+```python
+# backend/tests/test_resolvers_cards.py
+from tests._schema_test_util import test_schema
+
+async def test_search_cards_happy_path(db_session):
+    db_session.add_all([
+        Card(id="a", name="Lightning Bolt", ...),
+        Card(id="b", name="Counterspell", ...),
+    ])
+    await db_session.commit()
+
+    result = await test_schema.execute(
+        '{ searchCards(query: "lightning") { id name } }',
+        context_value={"db": db_session},
+    )
+    assert result.errors is None
+    assert len(result.data["searchCards"]) == 1
+    assert result.data["searchCards"][0]["name"] == "Lightning Bolt"
+
+async def test_card_by_id_not_found(db_session):
+    result = await test_schema.execute(
+        '{ cardById(id: "nonexistent") { id } }',
+        context_value={"db": db_session},
+    )
+    assert result.errors is None
+    assert result.data["cardById"] is None
+
+async def test_search_cards_no_n_plus_1(db_session, assert_max_queries):
+    # Seed 5 cards
+    db_session.add_all([Card(id=f"id-{i}", name=f"Test {i}", ...) for i in range(5)])
+    await db_session.commit()
+
+    with assert_max_queries(2):
+        await test_schema.execute(
+            '{ searchCards(query: "Test") { id name typeLine } }',
+            context_value={"db": db_session},
+        )
+```
+
+- [ ] Add tests for `search_cards` (happy path, empty query, limit clamp)
+- [ ] Add tests for `card_by_id` (found, not found)
+- [ ] Add N+1 guard for any resolver that returns a list with nested fields
+
+## Step 4: Introduce typed-error Unions
+
+Build the error scaffolding once, then apply mutation-by-mutation. Start with `add_to_collection` because it has three meaningful error states.
+
+```python
+# backend/app/graphql/errors.py
+import strawberry
+
+@strawberry.interface
+class Error:
+    message: str
+
+@strawberry.type
+class NotFoundError(Error):
+    resource: str
+
+@strawberry.type
+class ValidationError(Error):
+    field: str
+    code: str
+
+@strawberry.type
+class ConflictError(Error):
+    detail: str
+```
+
+```python
+# backend/app/graphql/resolvers/collection.py — refactor add mutation
+from typing import Annotated, Union
+import strawberry
+from app.graphql.errors import NotFoundError, ValidationError, ConflictError
+
+@strawberry.type
+class AddToCollectionSuccess:
+    entry: CollectionItemType
+
+AddToCollectionResult = Annotated[
+    Union[
+        AddToCollectionSuccess,
+        NotFoundError,
+        ValidationError,
+        ConflictError,
+    ],
+    strawberry.union("AddToCollectionResult"),
+]
+
+@strawberry.type
+class CollectionMutation:
+    @strawberry.mutation
+    async def add_to_collection(
+        self, info: Info, scryfall_id: str, quantity: int = 1, ...
+    ) -> AddToCollectionResult:
+        # 1. Validation
+        if quantity <= 0:
+            return ValidationError(
+                message="quantity must be positive",
+                field="quantity", code="OUT_OF_RANGE",
+            )
+        # 2. FK existence check
+        db = info.context["db"]
+        card = await db.scalar(select(Card).where(Card.id == scryfall_id))
+        if card is None:
+            return NotFoundError(
+                message=f"No card with id {scryfall_id}",
+                resource="card",
+            )
+        # 3. Insert (catches IntegrityError → ConflictError once UNIQUE is added in Phase E)
+        try:
+            item = CollectionItem(...)
+            db.add(item)
+            await db.commit()
+            return AddToCollectionSuccess(entry=_to_type(item))
+        except IntegrityError as e:
+            await db.rollback()
+            return ConflictError(message="duplicate variant", detail=str(e))
+```
+
+- [ ] Add `errors.py` with the three error types
+- [ ] Refactor `add_to_collection` to return the Union
+- [ ] Run codegen on the frontend: `cd frontend && npm run codegen`
+
+## Step 5: Mutation tests for each Union variant
+
+```python
+# backend/tests/test_resolvers_collection.py
+
+ADD_MUTATION = """
+mutation Add($id: String!, $qty: Int!) {
+  addToCollection(scryfallId: $id, quantity: $qty) {
+    __typename
+    ... on AddToCollectionSuccess { entry { quantity } }
+    ... on ValidationError { field code }
+    ... on NotFoundError { resource }
+    ... on ConflictError { detail }
+  }
+}
+"""
+
+async def test_add_to_collection_happy(db_session):
+    db_session.add(Card(id="c1", name="Bolt", ...))
+    await db_session.commit()
+
+    result = await test_schema.execute(
+        ADD_MUTATION,
+        variable_values={"id": "c1", "qty": 4},
+        context_value={"db": db_session},
+    )
+    assert result.errors is None
+    assert result.data["addToCollection"]["__typename"] == "AddToCollectionSuccess"
+
+async def test_add_to_collection_invalid_quantity(db_session):
+    result = await test_schema.execute(
+        ADD_MUTATION,
+        variable_values={"id": "c1", "qty": 0},
+        context_value={"db": db_session},
+    )
+    payload = result.data["addToCollection"]
+    assert payload["__typename"] == "ValidationError"
+    assert payload["field"] == "quantity"
+
+async def test_add_to_collection_card_not_found(db_session):
+    result = await test_schema.execute(
+        ADD_MUTATION,
+        variable_values={"id": "nonexistent", "qty": 1},
+        context_value={"db": db_session},
+    )
+    assert result.data["addToCollection"]["__typename"] == "NotFoundError"
+
+# ConflictError test: defer to Phase E once the UNIQUE constraint is in place
+```
+
+- [ ] Add the three tests above
+- [ ] Note the `ConflictError` test in a TODO comment — it can't pass until Phase E adds the UNIQUE
+
+## Step 6: HTTP-layer smoke tests
+
+One per top-level operation:
+
+```python
+async def test_http_search_cards(client, db_session):
+    db_session.add(Card(id="x", name="Bolt", ...))
+    await db_session.commit()
+
+    response = await client.post("/graphql", json={
+        "query": '{ searchCards(query: "Bolt") { name } }',
+    })
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["searchCards"][0]["name"] == "Bolt"
+```
+
+- [ ] One HTTP-layer test per top-level Query field
+- [ ] One HTTP-layer test per top-level Mutation field
+- [ ] These are wiring-only; if `schema.execute` works but HTTP doesn't, the bug is in `context_getter` or `dependency_overrides`
+
+## Lock-in commit
+
+- [ ] Cards resolvers: search, byId, N+1-guarded
+- [ ] Collection resolvers: list, add (Union variants), remove
+- [ ] Decks resolvers (if implemented): create, list, addCard, removeCard
+- [ ] HTTP-layer smoke tests for each top-level field
+- [ ] `npm run codegen` produces a clean TS output with the new Union types
+- [ ] Final commit: `test: resolver tests with typed-error Unions and N+1 guards`
+
+Move to [Phase E](../part-6).

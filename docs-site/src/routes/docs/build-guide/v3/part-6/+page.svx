@@ -1,0 +1,315 @@
+# 05 — Phase E: Hardening Pass
+
+Now drive the systematic hardening: structured logging, MaskErrors, the composite UNIQUE constraint, `lazy="raise_on_sql"`, FK ON DELETE audit, custom scalars. Each item: write the test that should pass *after* the change, watch it fail, make the change, watch it pass, commit.
+
+**Effort:** 2–4 days (most variable phase).
+
+## Goal
+
+A backend that fails loudly on N+1, masks unexpected errors from clients, propagates request_id through Celery, and enforces collection-variant uniqueness at the database level.
+
+## Step 1: MaskErrors extension + logging schema extension
+
+```python
+# backend/app/graphql/extensions.py
+import logging
+import strawberry
+from strawberry.extensions import MaskErrors, SchemaExtension
+
+logger = logging.getLogger("mtg.graphql")
+
+class ClientFacingError(Exception):
+    """Subclass this for errors the client should see verbatim."""
+
+def _should_mask(error):
+    return not isinstance(error.original_error, ClientFacingError)
+
+class ErrorLoggingExtension(SchemaExtension):
+    def on_operation(self):
+        yield
+        if self.execution_context.errors:
+            for err in self.execution_context.errors:
+                logger.exception(
+                    "graphql error",
+                    extra={"path": err.path, "operation": self.execution_context.operation_name},
+                    exc_info=err.original_error,
+                )
+```
+
+```python
+# backend/app/graphql/schema.py — wire extensions
+from app.graphql.extensions import (
+    ErrorLoggingExtension, _should_mask
+)
+from strawberry.extensions import MaskErrors
+
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    extensions=[
+        ErrorLoggingExtension,
+        MaskErrors(should_mask_error=_should_mask),
+    ],
+)
+```
+
+```python
+# backend/tests/test_error_masking.py
+async def test_unhandled_error_is_masked(client):
+    """Internal errors must not leak details to clients."""
+    # Trigger a programmer bug — e.g. a query that hits an unhandled path
+    response = await client.post("/graphql", json={
+        "query": "{ queryThatRaises }",  # add a test-only resolver that raises ValueError
+    })
+    body = response.json()
+    assert body["errors"][0]["message"] == "Unexpected error."
+    assert "ValueError" not in body["errors"][0]["message"]
+```
+
+- [ ] Create `extensions.py`
+- [ ] Wire into `schema.py`
+- [ ] Add the masking test
+- [ ] Commit: `feat(graphql): mask unexpected errors and log full details server-side`
+
+## Step 2: Structured logging with request_id
+
+```bash
+pip install structlog asgi-correlation-id
+```
+
+```python
+# backend/app/logging_config.py
+import logging
+import structlog
+from asgi_correlation_id.context import correlation_id
+
+def configure_logging():
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.JSONRenderer(),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        cache_logger_on_first_use=True,
+    )
+
+def bind_request_id():
+    cid = correlation_id.get()
+    if cid:
+        structlog.contextvars.bind_contextvars(request_id=cid)
+```
+
+```python
+# backend/app/main.py
+from asgi_correlation_id import CorrelationIdMiddleware
+from app.logging_config import configure_logging
+
+configure_logging()
+app.add_middleware(CorrelationIdMiddleware)
+```
+
+```python
+# backend/celery_worker.py — propagate request_id through Celery
+from celery.signals import before_task_publish, task_prerun
+import structlog
+
+@before_task_publish.connect
+def add_correlation_id(headers=None, **kwargs):
+    from asgi_correlation_id.context import correlation_id
+    cid = correlation_id.get()
+    if cid and headers is not None:
+        headers["correlation_id"] = cid
+
+@task_prerun.connect
+def bind_correlation_id(task=None, **kwargs):
+    if task and getattr(task.request, "correlation_id", None):
+        structlog.contextvars.bind_contextvars(
+            request_id=task.request.correlation_id
+        )
+```
+
+- [ ] Install structlog and asgi-correlation-id
+- [ ] Add `logging_config.py`
+- [ ] Wire middleware in `main.py`
+- [ ] Add Celery signal hooks
+- [ ] Manual test: hit the API, observe a request_id in logs that follows through any Celery task it enqueues
+- [ ] Commit: `feat(logging): structlog with request_id correlation across HTTP and Celery`
+
+## Step 3: Custom `ScryfallID` scalar
+
+Move UUID validation to the schema layer so invalid IDs fail at parse time, not at the FK.
+
+```python
+# backend/app/graphql/scalars.py
+import uuid
+import strawberry
+
+def _parse_scryfall_id(value):
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid Scryfall ID: {value}")
+
+ScryfallID = strawberry.scalar(
+    str,
+    serialize=lambda v: str(v),
+    parse_value=_parse_scryfall_id,
+    name="ScryfallID",
+    description="A Scryfall card UUID",
+)
+```
+
+- [ ] Create `scalars.py`
+- [ ] Replace `scryfall_id: str` with `scryfall_id: ScryfallID` in mutation signatures
+- [ ] Add a test asserting that a malformed ID fails before the resolver runs
+- [ ] Run codegen — TS side gets the branded type
+- [ ] Commit: `feat(graphql): ScryfallID custom scalar for UUID validation`
+
+## Step 4: Composite UNIQUE on collection
+
+**Note:** drop `user_id` from the original plan — single-user app.
+
+```python
+# backend/app/models/models.py
+from sqlalchemy import UniqueConstraint, CheckConstraint
+
+class CollectionItem(Base):
+    __tablename__ = "collection"
+    __table_args__ = (
+        UniqueConstraint(
+            "scryfall_id", "foil", "condition", "language",
+            name="uq_collection_variant",
+        ),
+        CheckConstraint("quantity > 0", name="ck_collection_quantity_positive"),
+    )
+    # ... existing columns ...
+```
+
+```python
+# Generate the migration
+alembic revision --autogenerate -m "add collection variant unique and quantity check"
+
+# Review the generated file. Confirm:
+# - op.create_unique_constraint(...)
+# - op.create_check_constraint(...)
+# Edit if autogenerate is wrong.
+
+alembic upgrade head
+```
+
+```python
+# Test: ConflictError variant now reachable
+async def test_add_collection_duplicate_variant_returns_conflict(db_session):
+    db_session.add(Card(id="c1", name="Bolt", ...))
+    await db_session.commit()
+
+    # First add succeeds
+    await test_schema.execute(
+        ADD_MUTATION,
+        variable_values={"id": "c1", "qty": 4},
+        context_value={"db": db_session},
+    )
+    # Identical variant
+    result = await test_schema.execute(
+        ADD_MUTATION,
+        variable_values={"id": "c1", "qty": 1},
+        context_value={"db": db_session},
+    )
+    assert result.data["addToCollection"]["__typename"] == "ConflictError"
+```
+
+The right product behavior here is probably **upsert: increment quantity on conflict**, not return `ConflictError`. Decide deliberately. If you go with upsert:
+
+```python
+# In add_to_collection mutation, replace the simple insert with:
+stmt = pg_insert(CollectionItem).values(...)
+stmt = stmt.on_conflict_do_update(
+    index_elements=["scryfall_id", "foil", "condition", "language"],
+    set_={"quantity": CollectionItem.quantity + stmt.excluded.quantity},
+)
+```
+
+- [ ] Add `__table_args__` with UNIQUE and CHECK
+- [ ] Generate, review, and apply the Alembic migration
+- [ ] Decide: hard conflict (`ConflictError`) or upsert-and-increment? Implement accordingly.
+- [ ] Update tests to match the chosen behavior
+- [ ] Commit: `feat(db): collection variant UNIQUE constraint + quantity CHECK`
+
+## Step 5: Stable Alembic naming convention
+
+Without this, autogenerate produces unstable anonymous constraint names that break downgrades.
+
+```python
+# backend/app/db.py — extend Base
+from sqlalchemy import MetaData
+
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+```
+
+- [ ] Update `Base` with naming convention
+- [ ] Generate a no-op migration to confirm it picks up — `alembic revision --autogenerate -m "test naming"`. If it generates rename ops, apply them and commit. If empty, delete the migration.
+- [ ] Commit: `chore(db): stable Alembic naming convention`
+
+## Step 6: `lazy="raise_on_sql"` on relationships
+
+This is the highest-risk change in the phase. The current `collection()` resolver accesses `item.card` without explicit eager loading — flipping the default will break it. Audit first, fix, then flip.
+
+**Audit:** grep for every `selectinload`, `joinedload`, and bare relationship access in resolvers.
+
+```python
+# backend/app/graphql/resolvers/collection.py — example fix
+async def collection(self, info: Info) -> list[CollectionItemType]:
+    db = info.context["db"]
+    result = await db.execute(
+        select(CollectionItem).options(selectinload(CollectionItem.card))
+    )
+    return [_to_type(item) for item in result.scalars()]
+```
+
+- [ ] Grep all resolvers for relationship access: `grep -rn "\.card\b\|\.deck_cards\b\|\.deck\b" app/graphql/resolvers/`
+- [ ] Add `selectinload` to every query that needs the relationship
+- [ ] Flip every relationship to `lazy="raise_on_sql"` in `models.py`
+- [ ] Run the full test suite — anything that was implicitly lazy-loading will fail loudly
+- [ ] Fix each failure by adding `selectinload` to the query
+- [ ] Commit: `feat(db): raise on implicit SQL, eager-load all resolver queries`
+
+## Step 7: FK ON DELETE audit
+
+| FK | ON DELETE | Reason |
+|---|---|---|
+| `collection.scryfall_id` → `cards.id` | RESTRICT | Don't let Scryfall sync delete a card you own |
+| `deck_cards.deck_id` → `decks.id` | CASCADE | Owned data — deleting a deck removes its cards |
+| `deck_cards.scryfall_id` → `cards.id` | RESTRICT | Same as collection |
+| `decks.commander_id` → `cards.id` | RESTRICT | Same |
+| `price_history.scryfall_id` → `cards.id` | CASCADE | Price snapshots are derived; OK to drop with the card |
+| `edhrec_cache` (no FK) | n/a | |
+
+- [ ] Audit each FK against the table above
+- [ ] Generate a migration with the corrections: `alembic revision --autogenerate -m "fk on delete audit"`
+- [ ] Review, apply, commit
+
+## Lock-in commit
+
+- [ ] MaskErrors + logging extension
+- [ ] structlog + asgi-correlation-id propagating through Celery
+- [ ] ScryfallID custom scalar
+- [ ] Composite UNIQUE on collection variants
+- [ ] Stable Alembic naming convention
+- [ ] All relationships use `lazy="raise_on_sql"`; resolvers use `selectinload`
+- [ ] FK ON DELETE audited and corrected
+- [ ] Final commit per concern (don't mash these together — surgical rollback matters)
+
+Move to [Phase F](../part-7).

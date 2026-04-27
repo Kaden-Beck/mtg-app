@@ -1,0 +1,184 @@
+# 06 — Phase F: Final Smoke Pass
+
+The green-bar moment. Validate the suite is stable, types are clean, and there's nothing lurking before resuming Lesson 12.
+
+**Effort:** half a day.
+
+## Goal
+
+The full suite passes deterministically under random ordering, mypy is clean in strict mode, ruff is happy, codegen runs without errors, and one end-to-end CSV-import test exercises the whole stack from mutation to Celery task to DB.
+
+## Step 1: Random-ordering check
+
+Install pytest-randomly:
+
+```bash
+pip install pytest-randomly
+```
+
+Run the suite multiple times with different seeds:
+
+```bash
+pytest backend/tests/ --randomly-seed=12345 -v
+pytest backend/tests/ --randomly-seed=67890 -v
+pytest backend/tests/ --randomly-seed=last -v
+```
+
+- [ ] Three runs with different seeds all pass
+- [ ] If any test fails on a non-default seed, fix the order dependency before moving on
+
+## Step 2: Coverage review
+
+```bash
+pytest backend/tests/ --cov=app --cov-report=term-missing --cov-report=html
+```
+
+Review the gaps. **Don't chase coverage for its own sake** — review uncovered branches and ask: is this a real risk path? If yes, write a test. If no (logging branches, defensive `assert` statements, dead code), move on.
+
+- [ ] Coverage report generated
+- [ ] Each uncovered branch reviewed and either tested or accepted
+- [ ] `app/services/converter.py`: ~95%+ coverage expected
+- [ ] `app/services/scryfall_sync.py`: ~85%+ expected
+- [ ] `app/graphql/resolvers/`: ~80%+ expected
+
+## Step 3: Type checking strict mode
+
+```bash
+cd backend
+mypy app/ --strict
+```
+
+Expect a wave of errors on first run. Address them in this order:
+
+1. Missing type stubs (`pip install types-*`)
+2. Untyped imports (add `# type: ignore[import-untyped]` only when no stub exists)
+3. Genuine type bugs (fix the code)
+4. `Any` returns from third-party calls (cast or annotate)
+
+Do not blanket-ignore with `[mypy-*]` blocks. Each ignore should be targeted.
+
+- [ ] `mypy app/ --strict` reports zero errors
+- [ ] Commit: `chore(types): mypy strict pass`
+
+## Step 4: Ruff
+
+```bash
+ruff check backend/app/ backend/tests/ --fix
+ruff format backend/app/ backend/tests/
+```
+
+- [ ] `ruff check` reports zero errors
+- [ ] `ruff format --check` is clean
+- [ ] Commit: `style: ruff fixes and formatting`
+
+## Step 5: Codegen sanity
+
+```bash
+cd frontend
+npm run codegen
+npx tsc --noEmit
+```
+
+Any new Strawberry types or Union variants from Phases D and E must be reflected in the generated TS.
+
+- [ ] Codegen runs without errors
+- [ ] `tsc --noEmit` passes
+- [ ] Spot-check `src/graphql/graphql.ts` — confirm `AddToCollectionResult` Union is generated as a discriminated union with `__typename`
+- [ ] Commit (frontend): `chore: regenerate graphql types after backend hardening`
+
+## Step 6: End-to-end smoke
+
+One test that exercises the whole pipeline. Mock only what crosses a process boundary (Celery enqueue, external HTTP).
+
+```python
+# backend/tests/test_e2e_csv_import.py
+from unittest.mock import patch, MagicMock
+
+async def test_csv_upload_to_collection(client, db_session):
+    # Seed the cards referenced in the CSV
+    db_session.add_all([
+        Card(id="11111111-1111-1111-1111-111111111111", name="Lightning Bolt", ...),
+        Card(id="22222222-2222-2222-2222-222222222222", name="Counterspell", ...),
+    ])
+    await db_session.commit()
+
+    csv_text = (
+        "Name,Quantity,Foil,Condition,Language,Scryfall ID\n"
+        "Lightning Bolt,4,,Near Mint,en,11111111-1111-1111-1111-111111111111\n"
+        "Counterspell,2,foil,Lightly Played,en,22222222-2222-2222-2222-222222222222\n"
+    )
+
+    # Convert
+    convert_resp = await client.post("/graphql", json={
+        "query": """
+          mutation Conv($csv: String!) {
+            convertCsv(csv: $csv, fromFormat: "manabox", toFormat: "moxfield") {
+              csv count
+            }
+          }
+        """,
+        "variables": {"csv": csv_text},
+    })
+    assert convert_resp.json()["data"]["convertCsv"]["count"] == 2
+
+    # Bulk add
+    for card_id, qty, foil in [
+        ("11111111-1111-1111-1111-111111111111", 4, False),
+        ("22222222-2222-2222-2222-222222222222", 2, True),
+    ]:
+        await client.post("/graphql", json={
+            "query": ADD_MUTATION,
+            "variables": {"id": card_id, "qty": qty},
+        })
+
+    # Verify
+    list_resp = await client.post("/graphql", json={
+        "query": "{ collection { id quantity foil card { name } } }",
+    })
+    items = list_resp.json()["data"]["collection"]
+    assert len(items) == 2
+    assert sum(i["quantity"] for i in items) == 6
+
+@patch("app.tasks.tasks.scryfall_sync_task.delay")
+async def test_celery_enqueue_wired_up(mock_delay):
+    """Verify mutation/admin endpoint enqueues a Celery task without invoking it."""
+    # Whatever endpoint or admin mutation triggers the sync
+    ...
+    assert mock_delay.called
+```
+
+- [ ] Add the e2e test
+- [ ] All tests pass
+- [ ] Commit: `test(e2e): csv import to collection round trip`
+
+## Step 7: Final verification
+
+Run everything one more time:
+
+```bash
+cd backend
+pytest --randomly-seed=last --cov=app -v
+mypy app/ --strict
+ruff check app/ tests/
+ruff format --check app/ tests/
+
+cd ../frontend
+npm run codegen
+npx tsc --noEmit
+```
+
+All green.
+
+- [ ] All commands pass cleanly
+- [ ] **Lock-in commit:** `chore: backend hardening complete; ready for Lesson 12`
+
+## What's next
+
+You're back on the build guide. Resume from wherever you left off — likely Lesson 12 (converter resolver + UI) or Lesson 13 (deck resolvers). The harness will pay back the time investment many times over: every new resolver gets the same Union+test pattern, every new service gets the rollback fixture, every Strawberry change is caught by codegen + tsc.
+
+Two habits to keep:
+
+- **Failing test first** for every bug fix going forward. The discipline is set; don't drop it.
+- **Run codegen and tsc** after every Strawberry schema change. Frontend type drift is a silent killer.
+
+Phase F is done.

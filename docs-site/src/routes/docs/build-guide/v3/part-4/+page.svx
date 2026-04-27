@@ -1,0 +1,223 @@
+# 03 — Phase C: Service Integration Tests
+
+DB-touching tests that ride the rollback fixture. The Scryfall sync gets hardened against partial failure here.
+
+**Effort:** 2–3 days.
+
+## Goal
+
+Real-database integration tests for `sync_scryfall_bulk` covering idempotency, partial failure, the `updated_at` upsert gap, retry behavior, and required headers. **The existing `test_scryfall_sync.py` (mocked AsyncMock session) gets supplemented, and one assertion gets rewritten.**
+
+## Key context
+
+- The current `test_scryfall_sync.py` asserts `mock_db.commit.call_count == 2` for 501 cards. **That test is documenting buggy behavior.** When you move to single-outer-commit, this assertion gets updated.
+- Use respx for HTTP mocking, not unittest.mock — the API is far cleaner for httpx.
+- Build the `httpx.AsyncClient` and async DB engine **inside** the coroutine, not at module scope. Each Celery task call creates a fresh event loop.
+
+## Step 1: Static fixture JSON
+
+Create a small Scryfall card fixture covering the edge cases that actually break things:
+
+```python
+# backend/tests/fixtures/scryfall_sample.py
+SAMPLE_CARDS = [
+    {  # Normal creature
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "Lightning Bolt", "set": "lea", "set_name": "Limited Edition Alpha",
+        "collector_number": "161", "cmc": 1.0,
+        "type_line": "Instant", "rarity": "common",
+        "color_identity": ["R"],
+        "prices": {"usd": "1.50", "usd_foil": None, "eur": "1.20"},
+    },
+    {  # Half-cost — exercises CMC fix
+        "id": "22222222-2222-2222-2222-222222222222",
+        "name": "Little Girl", "set": "uh", "set_name": "Unhinged",
+        "collector_number": "30", "cmc": 0.5,
+        "type_line": "Creature — Human", "rarity": "uncommon",
+        "color_identity": ["W"],
+        "prices": {"usd": "2.00", "usd_foil": "5.00", "eur": "1.80"},
+    },
+    {  # Sub-cent price — exercises _price_cents fix
+        "id": "33333333-3333-3333-3333-333333333333",
+        "name": "Bulk Common", "set": "fdn", "set_name": "Foundations",
+        "collector_number": "100", "cmc": 2.0,
+        "type_line": "Sorcery", "rarity": "common",
+        "color_identity": ["U"],
+        "prices": {"usd": "0.005", "usd_foil": None, "eur": None},
+    },
+    {  # All-null prices
+        "id": "44444444-4444-4444-4444-444444444444",
+        "name": "Unpriced", "set": "tst", "set_name": "Test",
+        "collector_number": "1", "cmc": 0,
+        "type_line": "Land", "rarity": "common",
+        "color_identity": [],
+        "prices": {"usd": None, "usd_foil": None, "eur": None},
+    },
+]
+```
+
+- [ ] Create `backend/tests/fixtures/__init__.py` and `scryfall_sample.py`
+
+## Step 2: Idempotency test
+
+```python
+# backend/tests/test_scryfall_sync_integration.py
+from sqlalchemy import select, func
+from app.models.models import Card
+from app.services.scryfall_sync import sync_scryfall_bulk_from_iter
+from tests.fixtures.scryfall_sample import SAMPLE_CARDS
+
+async def test_sync_is_idempotent(db_session):
+    # First run
+    await sync_scryfall_bulk_from_iter(db_session, SAMPLE_CARDS)
+    first_count = await db_session.scalar(select(func.count()).select_from(Card))
+
+    # Capture timestamps
+    rows = (await db_session.execute(select(Card.id, Card.updated_at))).all()
+    first_timestamps = {r.id: r.updated_at for r in rows}
+
+    # Second run with identical input
+    await sync_scryfall_bulk_from_iter(db_session, SAMPLE_CARDS)
+    second_count = await db_session.scalar(select(func.count()).select_from(Card))
+
+    assert first_count == second_count
+    # NOTE: This will fail until updated_at is in the upsert set_ dict.
+    # Drives the fix in Step 4.
+    rows = (await db_session.execute(select(Card.id, Card.updated_at))).all()
+    second_timestamps = {r.id: r.updated_at for r in rows}
+    for id_, ts in second_timestamps.items():
+        assert ts > first_timestamps[id_], \
+            f"updated_at not refreshed on re-sync for {id_}"
+```
+
+This test requires refactoring `sync_scryfall_bulk` so it accepts an iterable of card dicts (decoupling HTTP from DB). Do that refactor now:
+
+```python
+# In scryfall_sync.py, split into two functions:
+
+async def sync_scryfall_bulk(db: AsyncSession) -> int:
+    cards = await _fetch_bulk_cards()  # HTTP only
+    return await sync_scryfall_bulk_from_iter(db, cards)
+
+async def sync_scryfall_bulk_from_iter(
+    db: AsyncSession, cards: list[dict]
+) -> int:
+    """DB-only ingest. No HTTP. Test surface."""
+    # ... existing upsert logic ...
+```
+
+- [ ] Refactor `sync_scryfall_bulk` to split fetch from ingest
+- [ ] Add the idempotency test
+- [ ] Run it — confirm `updated_at` assertion fails (drives Step 4 fix)
+
+## Step 3: Partial failure test
+
+```python
+async def test_partial_failure_rolls_back_or_skips_cleanly(db_session):
+    """If batch N fails, don't leave batches 0..N-1 committed."""
+    bad_cards = SAMPLE_CARDS + [{"id": None, "name": None}]  # malformed
+
+    with pytest.raises(Exception):
+        await sync_scryfall_bulk_from_iter(db_session, bad_cards)
+
+    # Decision: do you want all-or-nothing, or per-batch savepoint?
+    # If all-or-nothing: this should be 0
+    # If per-batch savepoint with skip: should be len(SAMPLE_CARDS)
+    count = await db_session.scalar(select(func.count()).select_from(Card))
+    assert count == 0, "expected all-or-nothing semantics"
+```
+
+- [ ] Add the partial-failure test
+- [ ] **Make the design call:** all-or-nothing (single outer commit) is recommended for daily scheduled sync. Update the assertion to match.
+- [ ] Refactor: remove `await db.commit()` from inside the batch loop. Use `await db.flush()` for memory release. Single `await db.commit()` after the loop.
+- [ ] **Update existing `test_scryfall_sync.py`:** the `mock_db.commit.call_count == 2` assertion is now wrong. Change to `== 1`.
+- [ ] Commit: `fix(scryfall): single outer transaction for sync, no partial commits`
+
+## Step 4: Fix the `updated_at` upsert gap
+
+In `_card_to_row` or wherever the `on_conflict_do_update` is built, the `set_` dict omits `updated_at`. Since the column uses `server_default` (not `onupdate`), existing rows silently keep their original timestamp on every sync.
+
+```python
+from sqlalchemy import func
+
+# In the upsert builder:
+stmt = stmt.on_conflict_do_update(
+    index_elements=["id"],
+    set_={
+        "name": stmt.excluded.name,
+        "price_usd": stmt.excluded.price_usd,
+        "price_usd_foil": stmt.excluded.price_usd_foil,
+        "price_eur": stmt.excluded.price_eur,
+        "scryfall_data": stmt.excluded.scryfall_data,
+        "updated_at": func.now(),  # <-- add this
+    },
+)
+```
+
+- [ ] Add `updated_at` to the upsert `set_` dict
+- [ ] Re-run the idempotency test — should now pass
+- [ ] Commit: `fix(scryfall): refresh updated_at on upsert`
+
+## Step 5: HTTP client hardening with respx
+
+```python
+# backend/tests/test_scryfall_http.py
+import httpx
+import pytest
+import respx
+
+@respx.mock
+async def test_bulk_meta_then_download():
+    respx.get("https://api.scryfall.com/bulk-data/default-cards").mock(
+        return_value=httpx.Response(200, json={"download_uri": "https://example.com/d.json"})
+    )
+    respx.get("https://example.com/d.json").mock(
+        return_value=httpx.Response(200, json=SAMPLE_CARDS)
+    )
+    cards = await _fetch_bulk_cards()
+    assert len(cards) == len(SAMPLE_CARDS)
+
+@respx.mock
+async def test_required_headers():
+    """Scryfall requires User-Agent and Accept headers."""
+    route = respx.get("https://api.scryfall.com/bulk-data/default-cards").mock(
+        return_value=httpx.Response(200, json={"download_uri": "..."})
+    )
+    try:
+        await _fetch_bulk_cards()
+    except Exception:
+        pass
+    assert route.called
+    request = route.calls.last.request
+    assert "User-Agent" in request.headers
+    assert request.headers.get("Accept") == "application/json"
+
+@respx.mock
+async def test_retry_on_transient_errors():
+    """Should retry on ConnectError, ReadTimeout, 5xx, 429."""
+    respx.get("https://api.scryfall.com/bulk-data/default-cards").mock(
+        side_effect=[
+            httpx.ConnectError("boom"),
+            httpx.Response(503),
+            httpx.Response(200, json={"download_uri": "..."}),
+        ]
+    )
+    # Assert the call eventually succeeds
+    ...
+```
+
+- [ ] Add the three tests above
+- [ ] **Add the `User-Agent` header** to your `httpx.AsyncClient` calls. Scryfall's policy requires it.
+- [ ] **Add tenacity-driven retries** on `(ConnectError, ReadTimeout, RemoteProtocolError, 5xx, 429)` with exponential backoff
+- [ ] Set generous timeouts: `httpx.Timeout(connect=10, read=180, write=10)`
+- [ ] Commit: `fix(scryfall): add User-Agent, retries, and proper timeouts`
+
+## Lock-in commit
+
+- [ ] Idempotency test green (and exercises the `updated_at` fix)
+- [ ] Partial-failure test green with all-or-nothing semantics
+- [ ] Existing mocked sync test updated (commit count == 1)
+- [ ] respx tests for headers and retries green
+- [ ] Final commit: `test: service integration for Scryfall sync, hardened against partial failure`
+
+Move to [Phase D](../part-5).

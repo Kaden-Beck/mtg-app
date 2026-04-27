@@ -1,0 +1,189 @@
+# 02 — Phase B: Pure Unit Tests
+
+The fastest, highest-leverage tests in the suite. No DB, no event loop, no fixtures beyond parametrization. **This is where you find and fix the banker's-rounding bugs.**
+
+**Effort:** 1–2 days.
+
+## Goal
+
+Near-complete coverage of the converter and the price helper, with the banker's-rounding bugs fixed under failing-test-then-fix discipline.
+
+## Key context
+
+- The converter tests in `tests/test_converter.py` are largely complete already. **Add new edge cases on top — don't rewrite.**
+- The existing `_price_cents` test only exercises `"0.995"` → `100`, which happens to pass because `99.5` rounds to even `100`. The general bug is masked.
+- Python 3 uses banker's rounding (round-half-to-even): `round(0.5) == 0`, `round(2.5) == 2`. Both `_price_cents` and the `cmc` field hit this.
+
+## Bug 1: `_price_cents` banker's rounding
+
+### Failing test first
+
+Add to `backend/tests/test_scryfall_sync.py`:
+
+```python
+import pytest
+from app.services.scryfall_sync import _price_cents
+
+@pytest.mark.parametrize("input_str,expected_cents", [
+    ("0.005", 1),     # Banker's rounding bug: round(0.5) == 0
+    ("0.015", 2),     # Banker's rounding bug: round(1.5) == 2 (works by luck)
+    ("0.025", 3),     # Banker's rounding bug: round(2.5) == 2
+    ("0.50", 50),
+    ("1.00", 100),
+    ("99.99", 9999),
+    ("0.001", 0),     # Genuinely under one cent
+    ("0", 0),
+    (None, None),
+    ("", None),
+    ("—", None),
+    ("N/A", None),
+    (" 0.50 ", 50),   # Whitespace
+    ("1e-2", 1),      # Scientific notation
+])
+def test_price_cents_edge_cases(input_str, expected_cents):
+    assert _price_cents(input_str) == expected_cents
+
+def test_price_cents_rejects_negative():
+    assert _price_cents("-1.00") is None
+```
+
+- [ ] Add the parametrized test above
+- [ ] Run it — confirm at least 3 cases fail (`"0.005"`, `"0.025"`, scientific notation, whitespace, sentinel strings)
+
+### Fix
+
+Replace `_price_cents` in `backend/app/services/scryfall_sync.py`:
+
+```python
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+_INVALID_PRICE_SENTINELS = {"", "—", "n/a", "na", "null"}
+
+def _price_cents(val: str | None) -> int | None:
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s or s.lower() in _INVALID_PRICE_SENTINELS:
+        return None
+    try:
+        d = Decimal(s)
+    except InvalidOperation:
+        return None
+    if d < 0:
+        return None
+    cents = (d * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return int(cents)
+```
+
+- [ ] Replace `_price_cents` with the fix above
+- [ ] Run the new tests — all should pass
+- [ ] Commit: `fix(scryfall): correct _price_cents banker's rounding and edge cases`
+
+## Bug 2: `_card_to_row` CMC rounding
+
+### Failing test first
+
+```python
+from app.services.scryfall_sync import _card_to_row
+
+def test_cmc_half_cost_card():
+    """Little Girl from Unhinged has cmc=0.5; round(0.5) == 0 silently drops it."""
+    row = _card_to_row({
+        "id": "abc",
+        "name": "Little Girl",
+        "set": "uh", "set_name": "Unhinged",
+        "collector_number": "30",
+        "cmc": 0.5,
+        "type_line": "Creature",
+        "rarity": "uncommon",
+    })
+    # Expectation: half-cost cards round UP, not to-even
+    assert row["cmc"] == 1, f"cmc=0.5 became {row['cmc']}, expected 1"
+
+@pytest.mark.parametrize("raw_cmc,expected", [
+    (0, 0),
+    (0.5, 1),
+    (1, 1),
+    (1.5, 2),
+    (2.5, 3),
+    (None, 0),
+])
+def test_cmc_normalization(raw_cmc, expected):
+    row = _card_to_row({
+        "id": "abc", "name": "X", "set": "x", "set_name": "X",
+        "collector_number": "1", "cmc": raw_cmc,
+        "type_line": "Creature", "rarity": "common",
+    })
+    assert row["cmc"] == expected
+```
+
+- [ ] Add the tests above
+- [ ] Confirm `cmc=0.5` test fails (currently produces `0`)
+
+### Fix
+
+In `backend/app/services/scryfall_sync.py`, replace the `cmc` line in `_card_to_row`:
+
+```python
+import math
+
+# Was: "cmc": round(c.get("cmc") or 0),
+# Becomes:
+"cmc": math.ceil(c.get("cmc") or 0),
+```
+
+**Better long-term option:** add a `cmc_raw: float` column and keep `cmc: int` as a derived field. Defer this until you have a real reason — for now `math.ceil` covers the half-cost case.
+
+- [ ] Apply the `math.ceil` fix
+- [ ] Run tests — all should pass
+- [ ] Commit: `fix(scryfall): use math.ceil for CMC to handle half-cost cards`
+
+## Bug 3 (gap): converter edge cases
+
+The existing `test_converter.py` covers happy paths. Add the gotchas documented in the build guide:
+
+```python
+# tests/test_converter.py — append
+
+def test_manabox_handles_utf8_bom():
+    """Real Manabox exports include BOM."""
+    csv_with_bom = "\ufeffName,Quantity,Foil,Condition,Language,Scryfall ID\n" \
+                   "Lightning Bolt,4,,Near Mint,en,abc-123\n"
+    cards = from_manabox(csv_with_bom)
+    assert len(cards) == 1
+    assert cards[0].scryfall_id == "abc-123"
+
+def test_archidekt_old_export_missing_scryfall_id():
+    """Older Archidekt exports omit scryfall_id; parser must fall back to name+set."""
+    csv = "name,quantity,setCode,foil,condition\n" \
+          "Lightning Bolt,4,M11,false,NM\n"
+    # Decide: skip silently? raise? add (name, set) fallback?
+    # This test forces the design decision.
+    ...
+
+def test_foil_field_casing_variations():
+    """Manabox: 'Foil'/empty. Moxfield: 'foil'/'etched'/empty. Archidekt: 'true'/'false'."""
+    ...
+
+def test_round_trip_manabox_to_moxfield_preserves_scryfall_id():
+    cards_in = from_manabox(SAMPLE_MANABOX_CSV)
+    moxfield_csv = to_moxfield(cards_in)
+    cards_out = from_moxfield(moxfield_csv)
+    assert {c.scryfall_id for c in cards_in} == {c.scryfall_id for c in cards_out}
+```
+
+- [ ] Add the BOM test
+- [ ] Add the round-trip preservation test
+- [ ] Make a deliberate design decision on the missing-scryfall-id case (skip with warning, raise, or fallback) and write the test for whichever you pick
+- [ ] Add foil-casing tests for all three formats
+- [ ] Commit: `test(converter): edge cases for BOM, foil casing, round-trip preservation`
+
+## Lock-in commit
+
+- [ ] `_price_cents` parametrized tests green (15+ cases)
+- [ ] CMC normalization tests green (parametrized)
+- [ ] Converter edge cases green
+- [ ] `pytest --cov=app.services` shows near-complete coverage on `converter.py` and `scryfall_sync.py`'s pure helpers
+- [ ] Final commit: `test: unit tests for converter and price helper, with bug fixes`
+
+Move to [Phase C](../part-4).

@@ -1,0 +1,51 @@
+---
+title: Build Guide v3 - Overview
+---
+
+# Backend Hardening & TDD Guide
+
+Pause feature work to install a test harness and harden the backend before resuming Lesson 12. This guide replaces "go straight to converter resolver UI" with a 6-phase pass that pays for itself across every subsequent feature.
+
+## How to use this guide
+
+- One phase per session. Don't combine. Context drift is real on this project.
+- Every phase ends at a clean commit point. Don't move on without it.
+- Steps are checkboxes — tick them as you go.
+- Code blocks are reference material, not full implementations. Adapt to the actual files you have open.
+
+## Phase order
+
+- [ ] **[00 — Prerequisites](./part-1)** — Three blocking fixes before any test work
+- [ ] **[01 — Phase A: Test Infrastructure](./part-2)** — Rollback fixture, ASGI client, smoke tests
+- [ ] **[02 — Phase B: Pure Unit Tests](./part-3)** — Converter, price helper, banker's-rounding bugs
+- [ ] **[03 — Phase C: Service Integration](./part-4)** — Scryfall sync hardening, idempotency, retries
+- [ ] **[04 — Phase D: Resolver & GraphQL Tests](./part-5)** — `schema.execute()`, typed-error Unions, N+1 guards
+- [ ] **[05 — Phase E: Hardening Pass](./part-6)** — MaskErrors, structlog, UNIQUE constraints, lazy="raise_on_sql"
+- [ ] **[06 — Phase F: Final Smoke Pass](./part-7)** — Random-seed run, coverage review, mypy strict, ship it
+
+## Top-line decisions (locked)
+
+- **pytest-asyncio 1.x in `auto` mode** with session-scoped event loop
+- **`join_transaction_mode="create_savepoint"`** for per-test rollback isolation
+- **`schema.execute()`** for ~80% of resolver tests; `httpx.AsyncClient` + `ASGITransport` for the wiring layer
+- **respx** for Scryfall/EDHRec mocking; static fixture JSON for parser tests
+- **structlog + asgi-correlation-id** for logging
+- **Typed-error Unions** for expected GraphQL failures; **`MaskErrors`** extension for unexpected ones
+- **Skip testcontainers** — add `mtg_test` to existing Compose Postgres
+- **Skip pytest-xdist** — not needed at this suite size
+
+## Known bugs the test suite should land on
+
+These are confirmed in the codebase. Don't fix them out of order — write the failing test first, then fix.
+
+- `_price_cents` uses `round()` (banker's rounding): `round(0.5) == 0`, so `"0.005"` → `0` cents instead of `1`
+- `_card_to_row` uses `round(cmc)`: cards with `cmc=0.5` (Little Girl) silently become `cmc=0`
+- Scryfall sync commits per batch — partial failure leaves up to 499 cards committed with no rollback
+- `on_conflict_do_update` `set_` dict omits `updated_at` — re-syncs never refresh the timestamp
+- `httpx.AsyncClient` has no retry transport, no `User-Agent` header
+- `CollectionItem` has no UNIQUE on `(scryfall_id, foil, condition, language)` — concurrent adds create duplicates
+- `add_to_collection` has no FK existence check before insert
+
+## Estimated effort
+
+8–14 working days end-to-end, heavily front-loaded on Phase A. The harness is the single most leveraged piece of work — Phases B–F are mostly mechanical once it's right.

@@ -1,0 +1,206 @@
+# 01 — Phase A: Test Infrastructure
+
+The single most important code in your test suite is the rollback fixture. Get it right and Phases B–F are mostly mechanical. Get it wrong and you'll fight `another operation is in progress` and `Future attached to a different loop` for weeks.
+
+**Effort:** half a day to a day.
+
+## Goal
+
+A working `db_session` fixture that yields a real `AsyncSession` bound to a savepoint inside an outer transaction, plus an ASGI `client` fixture that uses the same session. Two smoke tests prove rollback isolation works.
+
+## Key context
+
+- **`join_transaction_mode="create_savepoint"`** (SQLAlchemy 2.0+) replaces the entire pre-2.0 testing pattern. Don't read old blog posts that override `event_loop` or use `after_transaction_end` listeners — they're obsolete.
+- **Session-scoped event loop is mandatory.** Function-scoped loops + session-scoped engine = `Future attached to a different loop`.
+- **The dependency override must yield the same `db_session` the test uses.** Don't construct another session inside `_override_get_db`.
+
+## Setup
+
+### 1. Add the test database
+
+Add to `docker-compose.yml` (or run once via psql):
+
+```yaml
+# docker-compose.yml — extend the postgres service
+postgres:
+  image: postgres:16
+  environment:
+    POSTGRES_DB: mtg
+    POSTGRES_USER: mtg
+    POSTGRES_PASSWORD: mtg
+    # ... existing config ...
+```
+
+```bash
+# Create the test DB inside the running Postgres container
+docker compose exec postgres psql -U mtg -c "CREATE DATABASE mtg_test;"
+```
+
+- [ ] Confirm: `psql postgresql://mtg:mtg@localhost:5432/mtg_test -c '\l'` lists the DB
+
+### 2. Install minimal tooling
+
+Append to `backend/requirements.txt`:
+
+```
+pytest-cov>=5.0
+polyfactory>=2.16
+faker>=25.0
+dirty-equals>=0.8
+respx>=0.21
+ruff>=0.5
+pre-commit>=3.7
+```
+
+- [ ] `pip install -r requirements.txt` in the venv
+
+### 3. Create `pyproject.toml`
+
+```toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+filterwarnings = [
+  "error",
+  "ignore::DeprecationWarning:celery.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = [
+  "pydantic.BaseModel",
+  "sqlalchemy.orm.DeclarativeBase",
+]
+```
+
+- [ ] Create `backend/pyproject.toml` with the config above
+- [ ] Run `pytest backend/tests/` — existing tests should still pass under the new config
+
+### 4. Write the conftest
+
+Replace any existing conftest with this. **Do not improvise.**
+
+```python
+# backend/tests/conftest.py
+from __future__ import annotations
+from typing import AsyncGenerator
+
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine, AsyncSession,
+    async_sessionmaker, create_async_engine,
+)
+
+from app.main import app
+from app.db import Base, get_db
+
+TEST_DB_URL = "postgresql+asyncpg://mtg:mtg@localhost:5432/mtg_test"
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def engine() -> AsyncGenerator[AsyncEngine, None]:
+    eng = create_async_engine(TEST_DB_URL, echo=False, future=True)
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    yield eng
+    await eng.dispose()
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+    async with engine.connect() as connection:
+        trans = await connection.begin()
+        Session = async_sessionmaker(
+            bind=connection,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+        session = Session()
+        try:
+            yield session
+        finally:
+            await session.close()
+            if trans.is_active:
+                await trans.rollback()
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def client(db_session) -> AsyncGenerator[AsyncClient, None]:
+    async def _override_get_db():
+        yield db_session
+    app.dependency_overrides[get_db] = _override_get_db
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
+    app.dependency_overrides.clear()
+```
+
+- [ ] Create `backend/tests/conftest.py` with the code above
+
+### 5. Write the smoke tests
+
+```python
+# backend/tests/test_harness_smoke.py
+from sqlalchemy import select
+from app.models.models import Card
+
+async def test_can_insert_and_query(db_session):
+    card = Card(
+        id="11111111-1111-1111-1111-111111111111",
+        name="Test Card",
+        set_code="TST", set_name="Test Set",
+        collector_number="1", cmc=0,
+        type_line="Creature", rarity="common",
+        scryfall_data={},
+    )
+    db_session.add(card)
+    await db_session.commit()  # becomes RELEASE SAVEPOINT, not real commit
+    result = await db_session.execute(select(Card).where(Card.id == card.id))
+    assert result.scalar_one().name == "Test Card"
+
+async def test_rollback_isolation(db_session):
+    # If the previous test's "commit" actually persisted, this fails
+    result = await db_session.execute(select(Card))
+    assert result.scalars().all() == []
+
+async def test_http_smoke(client):
+    response = await client.post(
+        "/graphql",
+        json={"query": "{ __schema { types { name } } }"},
+    )
+    assert response.status_code == 200
+    assert "data" in response.json()
+```
+
+- [ ] Create `backend/tests/test_harness_smoke.py`
+- [ ] Run `pytest backend/tests/test_harness_smoke.py -v`
+- [ ] **All three must pass.** If `test_rollback_isolation` fails, the savepoint isn't working — debug before continuing.
+
+## Common failure modes
+
+If the smoke tests fail, the issue is almost always one of these:
+
+- **`ScopeMismatch`** — a fixture is missing `loop_scope="session"`, or the `pyproject.toml` doesn't have the two `asyncio_default_*_loop_scope` lines
+- **`asyncpg: another operation is in progress`** — `_override_get_db` is constructing a new session instead of yielding `db_session`
+- **`Future attached to a different loop`** — the engine fixture isn't session-scoped, or you're creating new engines inside resolvers
+- **`AttributeError` on `loop_scope`** — you're still on `pytest-asyncio<1.0`; go back to prerequisites
+
+## Lock-in commit
+
+- [ ] All three smoke tests pass
+- [ ] `pytest backend/tests/` runs the full suite (smoke + existing converter + existing sync) green
+- [ ] Commit: `test: rollback fixture + ASGI client + smoke tests`
+
+Move to [Phase B](../part-3).
