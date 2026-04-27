@@ -2,9 +2,6 @@
   <title>App Build Overview</title>
 </svelte:head>
 
----
-title: Build Guide v2
----
 
 # MTG App — Build Guide v2
 

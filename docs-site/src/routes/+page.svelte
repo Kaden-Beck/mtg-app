@@ -8,7 +8,7 @@
 		Build logs and architecture docs for a self-hosted MTG collection manager.
 	</p>
 	<ul class="space-y-3">
-		<li><a href="/docs/build-guide/v2" class="text-blue-600 hover:underline">Build guide →</a></li>
+		<li><a href="//build-guide/" class="text-blue-600 hover:underline">Build guided (revisions) →</a></li>
 		<li><a href="/docs/architecture" class="text-blue-600 hover:underline">Architecture →</a></li>
 		<li><a href="/docs/stack" class="text-blue-600 hover:underline">Stack and Reference →</a></li>
 		<li><a href="/docs/erd" class="text-blue-600 hover:underline">ERD Chart (Mermaid) →</a></li>

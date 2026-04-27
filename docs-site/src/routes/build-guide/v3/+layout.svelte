@@ -1,17 +1,16 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
-	const BASE = '/docs/build-guide/v3';
-
 	const PAGES = [
-		{ href: BASE, label: 'Intro' },
-		{ href: `${BASE}/part-1`, label: 'Part 1' },
-		{ href: `${BASE}/part-2`, label: 'Part 2' },
-		{ href: `${BASE}/part-3`, label: 'Part 3' },
-		{ href: `${BASE}/part-4`, label: 'Part 4' },
-		{ href: `${BASE}/part-5`, label: 'Part 5' },
-		{ href: `${BASE}/part-6`, label: 'Part 6' },
-		{ href: `${BASE}/part-7`, label: 'Part 7' },
+		{ href: resolve('/build-guide/v3'), label: 'Intro' },
+		{ href: resolve('/build-guide/v3/part-1'), label: 'Part 1' },
+		{ href: resolve('/build-guide/v3/part-2'), label: 'Part 2' },
+		{ href: resolve('/build-guide/v3/part-3'), label: 'Part 3' },
+		{ href: resolve('/build-guide/v3/part-4'), label: 'Part 4' },
+		{ href: resolve('/build-guide/v3/part-5'), label: 'Part 5' },
+		{ href: resolve('/build-guide/v3/part-6'), label: 'Part 6' },
+		{ href: resolve('/build-guide/v3/part-7'), label: 'Part 7' },
 	];
 
 	let { children } = $props();
