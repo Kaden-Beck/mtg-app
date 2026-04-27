@@ -33,14 +33,14 @@
 
 {@render children()}
 
-<nav class="mt-12 border-t border-slate-200 pt-6 flex items-center justify-between text-sm font-mono">
+<nav class="not-prose mt-12 border-t border-slate-200 pt-6 flex items-center justify-between text-sm font-mono">
 	<span class="w-28">
 		{#if prev}
 			<a href={prev.href} class="text-slate-500 hover:text-slate-900">← {prev.label}</a>
 		{/if}
 	</span>
 
-	<a href={BASE} class="text-slate-400 hover:text-slate-900">home</a>
+	<a href={resolve('/build-guide/v3')} class="text-slate-400 hover:text-slate-900">home</a>
 
 	<span class="w-28 text-right">
 		{#if next}
