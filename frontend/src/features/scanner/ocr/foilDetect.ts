@@ -1,10 +1,13 @@
 /**
- * Foil-detection heuristic, ported from GrimbiXcode/mtgscan's
- * `detectFoilCard` (https://github.com/GrimbiXcode/mtgscan, MIT) - see
- * /NOTICE. Brightness/hue-variance based, no ML model involved: foil
- * treatments scatter light unevenly across the card face, so a foil capture
- * shows much higher local brightness and hue variance under normal room
- * lighting than a matte non-foil capture does.
+ * Foil-detection heuristic. Independent implementation; the approach
+ * (brightness/hue-variance based, no ML model involved) was informed by
+ * GrimbiXcode/mtgscan's `detectFoilCard`
+ * (https://github.com/GrimbiXcode/mtgscan, GPL-3.0 per its LICENSE.md -
+ * its README's "MIT" claim does not match). No code from that repo was
+ * copied - see /NOTICE for the full attribution and license note.
+ * Foil treatments scatter light unevenly across the card face, so a foil
+ * capture shows much higher local brightness and hue variance under
+ * normal room lighting than a matte non-foil capture does.
  */
 
 export interface FoilDetectionResult {

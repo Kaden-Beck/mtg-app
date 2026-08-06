@@ -1,9 +1,11 @@
 /**
- * Multi-strategy OCR fallback + scoring, ported from GrimbiXcode/mtgscan's
+ * Multi-strategy OCR fallback + scoring. Independent implementation; the
+ * approach (try each crop region in turn, score what comes back, stop as
+ * soon as a result is good enough) was informed by GrimbiXcode/mtgscan's
  * `performCollectorNumberOCRWithFallback` (https://github.com/GrimbiXcode/mtgscan,
- * MIT) - see /NOTICE. Tries each crop region in turn, scores what comes
- * back, and stops as soon as a result is good enough instead of always
- * paying for every strategy.
+ * GPL-3.0 per its LICENSE.md - its README's "MIT" claim does not match). No
+ * code from that repo was copied - see /NOTICE for the full attribution
+ * and license note.
  */
 import Tesseract from "tesseract.js"
 import { COLLECTOR_NUMBER_REGIONS, cropRegion } from "./collectorNumberRegion"

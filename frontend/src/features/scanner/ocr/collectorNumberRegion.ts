@@ -1,6 +1,10 @@
 /**
- * Collector-number crop regions, ported from GrimbiXcode/mtgscan
- * (https://github.com/GrimbiXcode/mtgscan, MIT) - see /NOTICE.
+ * Collector-number crop regions. Independent implementation; the approach
+ * (crop a few fixed guesses at the bottom-left corner instead of segmenting
+ * the whole card) was informed by GrimbiXcode/mtgscan
+ * (https://github.com/GrimbiXcode/mtgscan, GPL-3.0 per its LICENSE.md - its
+ * README's "MIT" claim does not match). No code from that repo was copied
+ * - see /NOTICE for the full attribution and license note.
  *
  * The lesson that repo landed on after iterating past full-frame card
  * detection: don't segment the card, just crop a few fixed guesses at the

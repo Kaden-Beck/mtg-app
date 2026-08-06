@@ -1,3 +1,11 @@
+/**
+ * Card-scanner capture page. Independent implementation; the capture flow
+ * (guide frame the user aligns a card to -> capture -> identify -> add to
+ * collection) was informed by Joshua-Beatty/MTG-Scanner
+ * (https://github.com/Joshua-Beatty/MTG-Scanner, MIT License, copyright (c)
+ * 2025 Joshua Beatty). No code from that repo was copied - see /NOTICE for
+ * the full attribution.
+ */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useLazyQuery, useMutation } from "@apollo/client/react"
 import {

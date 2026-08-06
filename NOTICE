@@ -1,29 +1,23 @@
-This project's card scanner (frontend/src/features/scanner/) adapts
-techniques from the following MIT-licensed open-source projects. No source
-files were copied verbatim; the logic below was reimplemented in TypeScript
-against this app's own stack (React + Vite + Tesseract.js + GraphQL).
-
---------------------------------------------------------------------------
-
-GrimbiXcode/mtgscan
-https://github.com/GrimbiXcode/mtgscan
-MIT License
-
-Adapted:
-  - Collector-number crop strategy (frontend/src/features/scanner/ocr/collectorNumberRegion.ts):
-    fixed-position corner crops instead of full-frame card segmentation.
-  - Multi-strategy OCR fallback with early-exit scoring (frontend/src/features/scanner/ocr/ocrFallback.ts),
-    based on their `performCollectorNumberOCRWithFallback`.
-  - Foil-detection heuristic (frontend/src/features/scanner/ocr/foilDetect.ts),
-    based on their `detectFoilCard` (brightness/hue variance, no ML).
+This project's card scanner (frontend/src/features/scanner/) was designed
+after studying the approach taken by the two open-source projects below.
+No source files from either project were copied, translated line-by-line,
+or vendored; every file listed here is an independent TypeScript
+implementation written against this app's own stack (React + Vite +
+Tesseract.js + GraphQL). Both projects are credited regardless, as a
+courtesy and for traceability.
 
 --------------------------------------------------------------------------
 
 Joshua-Beatty/MTG-Scanner
 https://github.com/Joshua-Beatty/MTG-Scanner
-MIT License
+License: MIT (confirmed - repo's LICENSE file, copyright (c) 2025 Joshua Beatty)
 
-Adapted:
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software (per the MIT
+  license terms; included here even though no source was copied, since
+  the capture-flow shape below was directly informed by this project).
+
+Informed:
   - Capture UI flow (frontend/src/features/scanner/ScannerPage.tsx): guide
     frame the user aligns a card to, capture, identify, add-to-collection.
   - Scryfall-ID-centric result shape for adding a scanned card to a
@@ -31,5 +25,34 @@ Adapted:
 
 --------------------------------------------------------------------------
 
-Copies of both projects' MIT license text are available at their
-respective repositories linked above.
+GrimbiXcode/mtgscan
+https://github.com/GrimbiXcode/mtgscan
+License: GPL-3.0 (repo's committed LICENSE.md is the GNU GPLv3 text, and
+GitHub's license detector reports GPL-3.0 for this repo). NOTE: the
+repo's own README states "MIT License" - that README claim does not
+match the LICENSE.md file actually committed to the repo. Treat this
+project as GPL-3.0 for any future reuse; do not rely on the README.
+
+Because GPL-3.0 is copyleft, no code, snippets, or line-level structure
+from this repository were copied into this project - only the general
+architectural approach (which corner to crop, running OCR against a few
+crop variants and scoring the results, using brightness/hue variance as
+a foil signal) was studied and re-derived independently. Algorithms and
+ideas are not themselves protected by copyright; only a work's specific
+expression is, so this does not place the surrounding project under
+GPL-3.0. It is credited here as the source of the architectural approach.
+
+Informed:
+  - Collector-number crop strategy (frontend/src/features/scanner/ocr/collectorNumberRegion.ts):
+    fixed-position corner crops instead of full-frame card segmentation.
+  - Multi-strategy OCR fallback with early-exit scoring (frontend/src/features/scanner/ocr/ocrFallback.ts),
+    conceptually similar to their `performCollectorNumberOCRWithFallback`.
+  - Foil-detection heuristic (frontend/src/features/scanner/ocr/foilDetect.ts),
+    conceptually similar to their `detectFoilCard` (brightness/hue variance, no ML).
+
+--------------------------------------------------------------------------
+
+Direct runtime dependency (tracked via frontend/package.json, not
+adapted/incorporated code, listed here for completeness):
+
+  Tesseract.js - https://github.com/naptha/tesseract.js - Apache-2.0
