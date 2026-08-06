@@ -1,6 +1,8 @@
-This project's card scanner (frontend/src/features/scanner/) was designed
-after studying the approach taken by the two open-source projects below.
-No source files from either project were copied, translated line-by-line,
+This project is licensed GPL-3.0-only as a whole - see /LICENSE.
+
+The card scanner (frontend/src/features/scanner/) was designed after
+studying the approach taken by the two open-source projects below. No
+source files from either project were copied, translated line-by-line,
 or vendored; every file listed here is an independent TypeScript
 implementation written against this app's own stack (React + Vite +
 Tesseract.js + GraphQL). Both projects are credited regardless, as a
@@ -33,14 +35,13 @@ repo's own README states "MIT License" - that README claim does not
 match the LICENSE.md file actually committed to the repo. Treat this
 project as GPL-3.0 for any future reuse; do not rely on the README.
 
-Because GPL-3.0 is copyleft, no code, snippets, or line-level structure
-from this repository were copied into this project - only the general
-architectural approach (which corner to crop, running OCR against a few
-crop variants and scoring the results, using brightness/hue variance as
-a foil signal) was studied and re-derived independently. Algorithms and
-ideas are not themselves protected by copyright; only a work's specific
-expression is, so this does not place the surrounding project under
-GPL-3.0. It is credited here as the source of the architectural approach.
+No code, snippets, or line-level structure from this repository were
+copied into this project - only the general architectural approach
+(which corner to crop, running OCR against a few crop variants and
+scoring the results, using brightness/hue variance as a foil signal) was
+studied and re-derived independently. It is credited here as the source
+of that architectural approach. This project is GPL-3.0-only regardless
+(see /LICENSE), so the distinction is informational rather than load-bearing.
 
 Informed:
   - Collector-number crop strategy (frontend/src/features/scanner/ocr/collectorNumberRegion.ts):

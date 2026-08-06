@@ -20,3 +20,9 @@ Using Postgres-SQL and Redis in a Docker Compose Container on my local server (r
 ## Agent Disclosure
 
 Claude Code and Claude Chat will be used for planning, debugging, and improved implementation. See CLAUDE.md for more info.
+
+## License
+
+GPL-3.0-only. See [LICENSE](./LICENSE). See [NOTICE](./NOTICE) for
+attribution to open-source projects the card scanner's approach was
+informed by.
