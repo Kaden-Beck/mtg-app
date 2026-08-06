@@ -58,5 +58,24 @@ class CardsQuery:
         db = info.context["db"]
         result = await db.execute(select(Card).where(Card.id == id))
         card = result.scalar_one_or_none()
-        
+
+        return _to_card_type(card) if card else None
+
+    @strawberry.field
+    async def card_by_collector_number(
+        self, info: Info, set_code: str, collector_number: str
+    ) -> Optional[CardType]:
+        """Exact card lookup by set code + collector number, e.g. the pair a
+        scanner OCRs off the bottom-left corner of a card ("FDN" / "0125").
+        No fuzzy matching — either it's an exact hit against the local
+        Scryfall cache or it isn't.
+        """
+        db = info.context["db"]
+        stmt = select(Card).where(
+            func.lower(Card.set_code) == set_code.lower(),
+            Card.collector_number == collector_number,
+        )
+        result = await db.execute(stmt)
+        card = result.scalar_one_or_none()
+
         return _to_card_type(card) if card else None

@@ -1,0 +1,13 @@
+query CardByCollectorNumber($setCode: String!, $collectorNumber: String!) {
+  cardByCollectorNumber(setCode: $setCode, collectorNumber: $collectorNumber) {
+    id
+    name
+    setCode
+    setName
+    collectorNumber
+    rarity
+    priceUsd
+    priceUsdFoil
+    imageUris
+  }
+}

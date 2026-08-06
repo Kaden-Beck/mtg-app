@@ -130,13 +130,32 @@ export type MutationCreateDeckArgs = {
   name: Scalars['String']['input'];
 };
 
+export type PriceHistoryType = {
+  __typename?: 'PriceHistoryType';
+  id: Scalars['String']['output'];
+  priceEur?: Maybe<Scalars['Int']['output']>;
+  priceUsd?: Maybe<Scalars['Int']['output']>;
+  priceUsdFoil?: Maybe<Scalars['Int']['output']>;
+  recordedAt: Scalars['DateTime']['output'];
+  scryfallId: Scalars['String']['output'];
+  snapshotDate: Scalars['String']['output'];
+};
+
 export type Query = {
   __typename?: 'Query';
+  cardByCollectorNumber?: Maybe<CardType>;
   cardById?: Maybe<CardType>;
   collection: Array<CollectionItemType>;
   deck?: Maybe<DeckType>;
   decks: Array<DeckType>;
+  priceHistory: Array<PriceHistoryType>;
   searchCards: Array<CardType>;
+};
+
+
+export type QueryCardByCollectorNumberArgs = {
+  collectorNumber: Scalars['String']['input'];
+  setCode: Scalars['String']['input'];
 };
 
 
@@ -147,6 +166,11 @@ export type QueryCardByIdArgs = {
 
 export type QueryDeckArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryPriceHistoryArgs = {
+  scryfallId: Scalars['String']['input'];
 };
 
 
@@ -179,7 +203,33 @@ export type CardByIdQueryVariables = Exact<{
 
 export type CardByIdQuery = { __typename?: 'Query', cardById?: { __typename?: 'CardType', id: string, name: string, oracleText?: string | null, legalities?: any | null, imageUris?: any | null } | null };
 
+export type GetCollectionQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetCollectionQuery = { __typename?: 'Query', collection: Array<{ __typename?: 'CollectionItemType', id: string, scryfallId: string, quantity: number, foil: boolean, condition: string, language: string, purchasePriceCents?: number | null, card?: { __typename?: 'CardType', id: string, name: string, setName: string, priceUsd?: number | null, priceUsdFoil?: number | null, imageUris?: any | null } | null }> };
+
+export type AddToCollectionMutationVariables = Exact<{
+  scryfallId: Scalars['String']['input'];
+  quantity?: InputMaybe<Scalars['Int']['input']>;
+  foil?: InputMaybe<Scalars['Boolean']['input']>;
+  condition?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type AddToCollectionMutation = { __typename?: 'Mutation', addToCollection: { __typename?: 'CollectionItemType', id: string, scryfallId: string, quantity: number } };
+
+export type CardByCollectorNumberQueryVariables = Exact<{
+  setCode: Scalars['String']['input'];
+  collectorNumber: Scalars['String']['input'];
+}>;
+
+
+export type CardByCollectorNumberQuery = { __typename?: 'Query', cardByCollectorNumber?: { __typename?: 'CardType', id: string, name: string, setCode: string, setName: string, collectorNumber: string, rarity: string, priceUsd?: number | null, priceUsdFoil?: number | null, imageUris?: any | null } | null };
+
 
 export const ConvertCsvDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ConvertCsv"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"csv"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"fromFormat"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionFormat"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toFormat"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionFormat"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"convertCsv"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"csv"},"value":{"kind":"Variable","name":{"kind":"Name","value":"csv"}}},{"kind":"Argument","name":{"kind":"Name","value":"fromFormat"},"value":{"kind":"Variable","name":{"kind":"Name","value":"fromFormat"}}},{"kind":"Argument","name":{"kind":"Name","value":"toFormat"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toFormat"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"csv"}},{"kind":"Field","name":{"kind":"Name","value":"count"}}]}}]}}]} as unknown as DocumentNode<ConvertCsvMutation, ConvertCsvMutationVariables>;
 export const SearchCardsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SearchCards"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"query"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"limit"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"searchCards"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"query"},"value":{"kind":"Variable","name":{"kind":"Name","value":"query"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"limit"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"setCode"}},{"kind":"Field","name":{"kind":"Name","value":"setName"}},{"kind":"Field","name":{"kind":"Name","value":"manaCost"}},{"kind":"Field","name":{"kind":"Name","value":"cmc"}},{"kind":"Field","name":{"kind":"Name","value":"typeLine"}},{"kind":"Field","name":{"kind":"Name","value":"colorIdentity"}},{"kind":"Field","name":{"kind":"Name","value":"rarity"}},{"kind":"Field","name":{"kind":"Name","value":"priceUsd"}},{"kind":"Field","name":{"kind":"Name","value":"priceUsdFoil"}},{"kind":"Field","name":{"kind":"Name","value":"imageUris"}}]}}]}}]} as unknown as DocumentNode<SearchCardsQuery, SearchCardsQueryVariables>;
 export const CardByIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CardById"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cardById"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"oracleText"}},{"kind":"Field","name":{"kind":"Name","value":"legalities"}},{"kind":"Field","name":{"kind":"Name","value":"imageUris"}}]}}]}}]} as unknown as DocumentNode<CardByIdQuery, CardByIdQueryVariables>;
+export const GetCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetCollection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"scryfallId"}},{"kind":"Field","name":{"kind":"Name","value":"quantity"}},{"kind":"Field","name":{"kind":"Name","value":"foil"}},{"kind":"Field","name":{"kind":"Name","value":"condition"}},{"kind":"Field","name":{"kind":"Name","value":"language"}},{"kind":"Field","name":{"kind":"Name","value":"purchasePriceCents"}},{"kind":"Field","name":{"kind":"Name","value":"card"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"setName"}},{"kind":"Field","name":{"kind":"Name","value":"priceUsd"}},{"kind":"Field","name":{"kind":"Name","value":"priceUsdFoil"}},{"kind":"Field","name":{"kind":"Name","value":"imageUris"}}]}}]}}]}}]} as unknown as DocumentNode<GetCollectionQuery, GetCollectionQueryVariables>;
+export const AddToCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddToCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"scryfallId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"quantity"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"foil"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"condition"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addToCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"scryfallId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"scryfallId"}}},{"kind":"Argument","name":{"kind":"Name","value":"quantity"},"value":{"kind":"Variable","name":{"kind":"Name","value":"quantity"}}},{"kind":"Argument","name":{"kind":"Name","value":"foil"},"value":{"kind":"Variable","name":{"kind":"Name","value":"foil"}}},{"kind":"Argument","name":{"kind":"Name","value":"condition"},"value":{"kind":"Variable","name":{"kind":"Name","value":"condition"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"scryfallId"}},{"kind":"Field","name":{"kind":"Name","value":"quantity"}}]}}]}}]} as unknown as DocumentNode<AddToCollectionMutation, AddToCollectionMutationVariables>;
+export const CardByCollectorNumberDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CardByCollectorNumber"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"setCode"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectorNumber"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cardByCollectorNumber"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"setCode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"setCode"}}},{"kind":"Argument","name":{"kind":"Name","value":"collectorNumber"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectorNumber"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"setCode"}},{"kind":"Field","name":{"kind":"Name","value":"setName"}},{"kind":"Field","name":{"kind":"Name","value":"collectorNumber"}},{"kind":"Field","name":{"kind":"Name","value":"rarity"}},{"kind":"Field","name":{"kind":"Name","value":"priceUsd"}},{"kind":"Field","name":{"kind":"Name","value":"priceUsdFoil"}},{"kind":"Field","name":{"kind":"Name","value":"imageUris"}}]}}]}}]} as unknown as DocumentNode<CardByCollectorNumberQuery, CardByCollectorNumberQueryVariables>;

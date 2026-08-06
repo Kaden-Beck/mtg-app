@@ -1,0 +1,35 @@
+This project's card scanner (frontend/src/features/scanner/) adapts
+techniques from the following MIT-licensed open-source projects. No source
+files were copied verbatim; the logic below was reimplemented in TypeScript
+against this app's own stack (React + Vite + Tesseract.js + GraphQL).
+
+--------------------------------------------------------------------------
+
+GrimbiXcode/mtgscan
+https://github.com/GrimbiXcode/mtgscan
+MIT License
+
+Adapted:
+  - Collector-number crop strategy (frontend/src/features/scanner/ocr/collectorNumberRegion.ts):
+    fixed-position corner crops instead of full-frame card segmentation.
+  - Multi-strategy OCR fallback with early-exit scoring (frontend/src/features/scanner/ocr/ocrFallback.ts),
+    based on their `performCollectorNumberOCRWithFallback`.
+  - Foil-detection heuristic (frontend/src/features/scanner/ocr/foilDetect.ts),
+    based on their `detectFoilCard` (brightness/hue variance, no ML).
+
+--------------------------------------------------------------------------
+
+Joshua-Beatty/MTG-Scanner
+https://github.com/Joshua-Beatty/MTG-Scanner
+MIT License
+
+Adapted:
+  - Capture UI flow (frontend/src/features/scanner/ScannerPage.tsx): guide
+    frame the user aligns a card to, capture, identify, add-to-collection.
+  - Scryfall-ID-centric result shape for adding a scanned card to a
+    collection.
+
+--------------------------------------------------------------------------
+
+Copies of both projects' MIT license text are available at their
+respective repositories linked above.
