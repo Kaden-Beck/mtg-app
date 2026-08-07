@@ -118,6 +118,7 @@ No official API — uses undocumented JSON endpoints (`https://json.edhrec.com/p
 - **Strawberry + async SQLAlchemy** requires careful dependency injection; use a `get_db` async dependency, not global sessions.
 - **GraphQL N+1**: use `strawberry.dataloader` for card lookups inside deck/collection resolvers.
 - **`@scryfall/api-types`** (npm) provides TypeScript types for Scryfall card objects on the frontend. Pydantic models on the Python side should mirror these — keep them in sync.
+- **Single-user app, no auth** — there is no `user` table and no `user_id` column anywhere in the schema. Any future UNIQUE constraint on `CollectionItem` (see `docs-site` build-guide v3, Phase E) keys off `(scryfall_id, foil, condition, language)` only. Don't add a `user_id` column to satisfy a constraint; that's out of scope until multi-user support is an actual requirement.
 
 ---
 
