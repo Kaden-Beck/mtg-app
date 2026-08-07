@@ -11,5 +11,5 @@ pydantic==2.10.6
 pydantic-settings==2.6.1
 python-multipart==0.0.9
 pytest==8.2.0
-pytest-asyncio==0.23.6
+pytest-asyncio>=1.0,<2.0
 eralchemy2>=1.4.1
