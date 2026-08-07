@@ -153,7 +153,19 @@ def from_archidekt(csv_text: str) -> list[CanonicalCard]:
     reader = csv.DictReader(io.StringIO(csv_text))
     cards = []
     for row in reader:
-        scryfall_id = row["scryfall_uuid"]
+        scryfall_id = row.get("scryfall_uuid")
+        if not scryfall_id:
+            # Older Archidekt exports omit this column entirely. No
+            # (name, set) fallback lookup here on purpose - from_archidekt
+            # is a pure, no-DB function; a fallback belongs in a later,
+            # DB-touching phase if it's ever wanted. Fail loud rather than
+            # silently drop the card or raise an unlabelled KeyError.
+            raise ValueError(
+                "Archidekt CSV is missing the 'scryfall_uuid' column "
+                f"(row: {row.get('name', row)!r}). Re-export from Archidekt "
+                "with Scryfall IDs included - older exports without them "
+                "aren't supported."
+            )
         condition = MOXFIELD_CONDITION_MAP.get(row.get("condition", "NM"), "NM")
         language = row.get("lang", "en") or "en"
 

@@ -11,6 +11,8 @@ No real database is required; no Scryfall endpoints are contacted.
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import pytest
+
 from app.services.scryfall_sync import (
     BULK_META_URL,
     _card_to_row,
@@ -99,6 +101,32 @@ class TestPriceCents:
     def test_empty_string(self) -> None:
         assert _price_cents("") is None
 
+    @pytest.mark.parametrize(
+        "input_str,expected_cents",
+        [
+            ("0.005", 1),  # Banker's rounding bug: round(0.5) == 0
+            ("0.015", 2),  # Banker's rounding bug: round(1.5) == 2 (works by luck)
+            ("0.025", 3),  # Banker's rounding bug: round(2.5) == 2
+            ("0.50", 50),
+            ("1.00", 100),
+            ("99.99", 9999),
+            ("0.001", 0),  # Genuinely under one cent
+            ("0", 0),
+            (None, None),
+            ("", None),
+            ("—", None),  # em dash, Scryfall's "no price" sentinel
+            ("N/A", None),
+            (" 0.50 ", 50),  # Whitespace
+            ("1e-2", 1),  # Scientific notation
+            ("garbage", None),  # Not a sentinel, not parseable - InvalidOperation path
+        ],
+    )
+    def test_price_cents_edge_cases(self, input_str, expected_cents) -> None:
+        assert _price_cents(input_str) == expected_cents
+
+    def test_price_cents_rejects_negative(self) -> None:
+        assert _price_cents("-1.00") is None
+
 
 # ---------------------------------------------------------------------------
 # _card_to_row
@@ -143,6 +171,27 @@ class TestCardToRow:
     def test_cmc_none_defaults_to_zero(self) -> None:
         c = make_card(cmc=None)
         assert _card_to_row(c)["cmc"] == 0
+
+    def test_cmc_half_cost_card(self) -> None:
+        """Little Girl from Unhinged has cmc=0.5; round(0.5) == 0 silently drops it."""
+        c = make_card(name="Little Girl", cmc=0.5)
+        row = _card_to_row(c)
+        assert row["cmc"] == 1, f"cmc=0.5 became {row['cmc']}, expected 1"
+
+    @pytest.mark.parametrize(
+        "raw_cmc,expected",
+        [
+            (0, 0),
+            (0.5, 1),
+            (1, 1),
+            (1.5, 2),
+            (2.5, 3),
+            (None, 0),
+        ],
+    )
+    def test_cmc_normalization(self, raw_cmc, expected) -> None:
+        c = make_card(cmc=raw_cmc)
+        assert _card_to_row(c)["cmc"] == expected
 
     def test_color_identity_default(self) -> None:
         c = make_card()
